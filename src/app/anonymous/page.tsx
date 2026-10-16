@@ -149,7 +149,7 @@ export default function AnonymousReportPage() {
             <div className="p-3 bg-green-50 dark:bg-green-950/40 rounded-2xl border border-green-200 text-xs text-green-900 dark:text-green-200 flex items-center gap-2 font-medium">
               <ShieldCheck className="w-5 h-5 text-green-600 shrink-0" />
               <span>
-                Zero Personal Data Recorded: Your phone number, IP address, and browser cookies are not stored.
+                No account identity is attached to this report. Do not include names or contact details in the text. Network infrastructure may retain connection logs.
               </span>
             </div>
 

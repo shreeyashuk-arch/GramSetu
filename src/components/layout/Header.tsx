@@ -98,7 +98,7 @@ export default function Header() {
     } else if (pathname === '/resources') {
       screenSummary += `Village resources. Match and request tractors, tankers, and technicians.`;
     } else if (pathname === '/anonymous') {
-      screenSummary += `Anonymous complaint filing. Your identity is 100% protected under DPDP Act.`;
+      screenSummary += `Confidential complaint filing. No account identity is attached; avoid personal details in the report text.`;
     } else if (pathname === '/schemes') {
       screenSummary += `Scheme navigator. Guided flow to find government benefits and required documents.`;
     } else if (pathname === '/analytics') {

@@ -97,7 +97,7 @@ All issues below are open unless a later change entry explicitly records a verif
 
 ### C-002 — DB-01: safe demo initialization and verified startup
 
-- Status: implemented and verified; ready for a focused commit.
+- Status: implemented and verified; committed as `3f523bd` (`fix: initialize demo database without resetting existing data`).
 - Cause: the workspace had no usable local database configuration or initialized SQLite schema/data.
 - Changed: `scripts/setup-demo.mjs`, `package.json`, `prisma/seed.ts`, `.gitignore`, `next.config.mjs`, `tsconfig.json`, `README.md`, `scripts/test-smoke.mjs`.
 - Setup creates ignored local configuration with a random secret and a separate demo database, preserves existing configuration, refuses destructive schema flags, and skips seeding populated databases. Reset behavior is retained behind explicit opt-in but is never enabled by setup.
@@ -110,10 +110,26 @@ All issues below are open unless a later change entry explicitly records a verif
 - Build: `cmd.exe /d /c "set GRAMSETU_DIST_DIR=.next-build&& npm run build"` PASSED; all routes compiled and production pages generated.
 - Remaining: successful smoke reads do not establish secure mutations or browser/offline behavior; the other MUST issues remain open.
 
+### C-003 — CMP-01 and complaint portions of SEC-01/PRIV-01
+
+- Status: implemented and verified; awaiting focused commit. Resource/SOS security and offline issues remain open.
+- Changed: complaint collection/detail/support/tracking routes; `src/lib/auth.ts`, `src/lib/complaint-access.ts`, `src/lib/complaint-update.ts`, `src/lib/spam-filter.ts`; tracker, anonymous page, Header, and DemoBar; new access/API regression scripts; `package.json`; `scripts/ensure-prisma.mjs`.
+- Complaint actions now require a current account, matching village/department/assignment, one valid action, legal status transitions, and proof for resolution. Only the recorded filer can confirm a resolved report; guarded transactional updates reject stale/replayed changes.
+- The tracker exposes authorized start-work/proof/confirmation controls, shows action failures, and refreshes after SSE/reconnect. Demo role switching reloads client identity instead of leaving stale role-specific state.
+- Standard list/detail responses use an allowlist, hide anonymous reports from public/peer views, coarsen public GPS, and omit tracking secrets/proxy/audit identities. Anonymous creation removes account/proxy audit linkage, uses cryptographic tracking codes, and broadcasts minimal invalidation only.
+- Support requires authentication and is idempotent. Duplicate support is transactional; list GET no longer escalates or modifies records as a side effect. The proof feed selects resident-confirmed closed reports.
+- JWT secrets no longer use a known fallback; request sessions reload current account authority and reject deleted accounts. Rate-limit hashes use a process-random salt with bounded expiring in-memory entries. Privacy copy no longer guarantees absolute anonymity.
+- Tests: `cmd.exe /d /c "npm test"` PASSED: 25 engine assertions, 65 access-policy cases, 57 SQLite-backed handler cases with 245 assertions. Four cross-action-field regressions initially failed, then passed after action-specific field validation.
+- Test isolation: `scripts/test-api.mjs` exclusively creates a UUID-named database, disconnects, and removes only its own fixture file; it never points tests at the populated demo database.
+- Typecheck: `node.exe node_modules/typescript/bin/tsc --noEmit --incremental false` PASSED. Live smoke: `node.exe scripts/test-smoke.mjs` PASSED 14/14.
+- Lint: `cmd.exe /d /c "npm run lint"` remains unavailable (missing script); no dependency added.
+- Build: original generation failed on a Windows DLL lock. Added schema/version-aware client reuse in `scripts/ensure-prisma.mjs`; a first byte-comparison retry also failed because Prisma formats its schema copy. Token-aware comparison preserving quoted values fixed that check. Final `cmd.exe /d /c "set GRAMSETU_DIST_DIR=.next-build&& npm run build"` PASSED without stopping the dev server.
+- Browser limitation: UI compiled successfully but actual mobile clicks, microphone/GPS permissions, IndexedDB, and reconnect behavior are not yet browser-verified. Demo auth/OTP bypass hardening, sensitive SOS delivery, and resource-action protection remain to be addressed.
+
 ## Rules for subsequent change entries
 
 For each fix, append its issue ID, cause, changed paths, behavior change, exact test/lint/typecheck/build commands and outcomes, remaining limitations, and successful commit hash. Mark work completed only after the relevant check actually passes; otherwise record the blocker and next step.
 
 ## Next action
 
-Commit C-002 using only its intended files, then implement CMP-01/SEC-01/PRIV-01: authorize complaint operations, protect public/anonymous responses, and complete the UI lifecycle. Keep the populated demo database intact and use isolated fixtures for regression writes.
+Commit C-003 using only its intended changes, then fix resource category eligibility, scoring edge cases, and authorized provider request transitions. Keep the populated demo database intact and use isolated fixtures for regression writes.

@@ -1,4 +1,4 @@
-import { createHash } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 
 export interface SpamCheckInput {
   title: string;
@@ -20,15 +20,19 @@ export interface SpamCheckResult {
 
 // In-memory rate limiter cache for abuse control
 const rateLimitMap = new Map<string, { count: number; firstSeen: number }>();
+const processSalt = randomBytes(32).toString('hex');
 
 export function generateAnonymousSaltedHash(identifier: string): string {
-  const salt = 'gramsetu-privacy-salt-2026';
-  return createHash('sha256').update(`${identifier}:${salt}`).digest('hex').substring(0, 16);
+  return createHash('sha256').update(`${identifier}:${processSalt}`).digest('hex').substring(0, 32);
 }
 
 export function checkRateLimit(hash: string, limit: number = 5, windowMinutes: number = 10): boolean {
   const now = Date.now();
   const windowMs = windowMinutes * 60 * 1000;
+  for (const [key, value] of rateLimitMap) {
+    if (now - value.firstSeen > Math.max(windowMs, 10 * 60 * 1000)) rateLimitMap.delete(key);
+  }
+  if (rateLimitMap.size >= 5000) rateLimitMap.delete(rateLimitMap.keys().next().value!);
   const entry = rateLimitMap.get(hash);
 
   if (!entry || now - entry.firstSeen > windowMs) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { checkRateLimit, generateAnonymousSaltedHash } from '@/lib/spam-filter';
 
 export async function GET(
   req: NextRequest,
@@ -7,9 +8,13 @@ export async function GET(
 ) {
   try {
     const trackingCode = params.code.trim();
+    const clientHash = generateAnonymousSaltedHash(req.ip || req.headers.get('x-forwarded-for') || 'anonymous-lookup');
+    if (!checkRateLimit(`lookup:${clientHash}`, 30, 10)) {
+      return NextResponse.json({ error: 'Too many lookups; try again later' }, { status: 429 });
+    }
 
     const complaint = await prisma.complaint.findFirst({
-      where: { anonymousTrackingCode: trackingCode },
+      where: { anonymousTrackingCode: trackingCode, isAnonymous: true },
       include: {
         zone: true,
         auditLogs: {
@@ -17,7 +22,6 @@ export async function GET(
           select: {
             action: true,
             createdAt: true,
-            details: true,
           },
         },
       },
