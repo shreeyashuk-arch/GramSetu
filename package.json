@@ -6,10 +6,12 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
+    "demo:setup": "node scripts/setup-demo.mjs",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:seed": "tsx prisma/seed.ts",
-    "test": "tsx scripts/test-engines.ts"
+    "test": "tsx scripts/test-engines.ts",
+    "test:smoke": "node scripts/test-smoke.mjs"
   },
   "dependencies": {
     "@prisma/client": "^5.21.1",

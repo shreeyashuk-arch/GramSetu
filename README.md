@@ -25,9 +25,9 @@ graph TD
 
 ---
 
-## 🚀 Quick Start (Zero Setup)
+## 🚀 Quick Start (Local Demo)
 
-GramSetu runs with zero external database configuration using SQLite:
+Use Node and npm from the same operating system that installed `node_modules` (Windows in the current workspace). SQLite needs no external database service, but it does need initialization:
 
 ```bash
 # 1. Clone / Navigate to project
@@ -36,14 +36,18 @@ cd GramSetu
 # 2. Install dependencies (runs Prisma generation automatically)
 npm install
 
-# 3. Seed database with realistic rural data
-npm run prisma:seed
+# 3. Create local configuration, initialize SQLite, and seed an empty database
+npm run demo:setup
 
 # 4. Start local development server
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+`demo:setup` creates an ignored `.env` with a random session secret and a separate demo database when no `.env` exists. It preserves existing configuration and populated data; rerunning it does not reset complaints or users. Restart an already-running dev server if it does not pick up the new environment file.
+
+Do not copy `node_modules` between Windows and WSL. Install separately if you intentionally change runtime platforms. No production readiness or legal-compliance guarantee is implied by the local demo setup.
 
 ---
 
