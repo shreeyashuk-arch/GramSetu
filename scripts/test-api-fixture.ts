@@ -72,6 +72,8 @@ async function main() {
     const detail = await import('../src/app/api/complaints/[id]/route');
     const support = await import('../src/app/api/complaints/[id]/support/route');
     const anonymous = await import('../src/app/api/complaints/anonymous/[code]/route');
+    const sos = await import('../src/app/api/sos/route');
+    const sosDetail = await import('../src/app/api/sos/[id]/route');
 
     // Stable synthetic identifiers and timestamps make behavior reproducible.
     const village = await prisma.village.create({ data: {
@@ -104,6 +106,7 @@ async function main() {
     const power = await account('power', '15', 'ORGANIZATION', { organizationType: 'MSEDCL_ELECTRICITY' });
     const assigned = await account('assigned', '16', 'PROVIDER', { providerCategory: 'PLUMBER' });
     const unassigned = await account('unassigned', '17', 'PROVIDER', { providerCategory: 'PLUMBER' });
+    const volunteer = await account('volunteer', '18', 'PROVIDER', { providerCategory: 'VOLUNTEER' });
 
     async function cookie(user: User, overrides: Partial<TokenPayload> = {}) {
       const token = await signToken({
@@ -115,7 +118,7 @@ async function main() {
       return `${COOKIE_NAME}=${token}`;
     }
     const cookies = new Map<string, string>();
-    for (const user of [owner, peer, sarpanch, water, power, assigned, unassigned]) {
+    for (const user of [owner, peer, sarpanch, water, power, assigned, unassigned, volunteer]) {
       cookies.set(user.id, await cookie(user));
     }
     function request(path: string, method = 'GET', body?: Record<string, unknown>, session?: string) {
@@ -497,6 +500,38 @@ async function main() {
       await json(anonymous.GET(request(`/api/complaints/anonymous/${code}`), { params: { code } }), 404);
     });
 
+    await test('SOS dashboard is restricted to authorized responders', async () => {
+      await json(sos.GET(request('/api/sos')), 403);
+      await json(sos.GET(request('/api/sos', 'GET', undefined, cookies.get(owner.id))), 403);
+      await json(sos.GET(request('/api/sos', 'GET', undefined, cookies.get(assigned.id))), 403);
+      const result = await json(sos.GET(request('/api/sos', 'GET', undefined, cookies.get(sarpanch.id))), 200);
+      ok(Array.isArray(result.alerts), 'Sarpanch can read village SOS incidents');
+    });
+    await test('SOS creation validates coordinates and stores the current account identity', async () => {
+      const before = await prisma.sOSAlert.count();
+      await json(sos.POST(request('/api/sos', 'POST', { lat: 999, lng: 73.8 }, cookies.get(owner.id))), 400);
+      equal(await prisma.sOSAlert.count(), before, 'invalid SOS does not write');
+      const result = await json(sos.POST(request('/api/sos', 'POST', {
+        lat: exact.lat, lng: exact.lng, message: 'Need immediate help near the village road.', senderName: 'Spoofed Name', senderPhone: 'Spoofed Phone',
+      }, cookies.get(owner.id))), 200);
+      ok(result.alert?.id && result.alert?.status === 'ACTIVE', 'SOS returns safe delivery acknowledgement');
+      equal('senderPhone' in result.alert, false, 'SOS response does not echo sender phone');
+      const row = await prisma.sOSAlert.findFirstOrThrow({ where: { senderId: owner.id }, orderBy: { createdAt: 'desc' } });
+      equal(row.senderName, owner.name, 'authenticated SOS uses current account name');
+      equal(row.senderPhone, owner.phone, 'authenticated SOS uses current account phone');
+    });
+    await test('only Sarpanch or verified safety volunteer can update SOS', async () => {
+      const row = await prisma.sOSAlert.findFirstOrThrow({ where: { senderId: owner.id }, orderBy: { createdAt: 'desc' } });
+      const updateRequest = (user: User, status: string) => new NextRequest(`http://regression.invalid/api/sos/${row.id}`, {
+        method: 'PATCH', headers: { 'content-type': 'application/json', cookie: cookies.get(user.id)! }, body: JSON.stringify({ status }),
+      });
+      await json(sosDetail.PATCH(updateRequest(owner, 'ACKNOWLEDGED'), { params: { id: row.id } }), 403);
+      await json(sosDetail.PATCH(updateRequest(sarpanch, 'ACKNOWLEDGED'), { params: { id: row.id } }), 200);
+      const resolved = await json(sosDetail.PATCH(updateRequest(volunteer, 'RESOLVED'), { params: { id: row.id } }), 200);
+      ok(typeof resolved.alert.responseTimeMinutes === 'number', 'response time is derived server-side');
+      await json(sosDetail.PATCH(updateRequest(sarpanch, 'ACKNOWLEDGED'), { params: { id: row.id } }), 409);
+    });
+
     await test('list reads do not mutate overdue SLA, status, audit or notification state', async () => {
       const overdue = await complaint({ status: 'IN_PROGRESS', escalationLevel: 0 });
       const before = {
@@ -505,14 +540,14 @@ async function main() {
       };
       equal((await prisma.complaint.findUniqueOrThrow({ where: { id: overdue.id } })).slaExpiresAt!.getTime() < Date.now(),
         true, 'SLA fixture is overdue before reads');
-      for (const user of [undefined, owner, peer, sarpanch, water, power, assigned, unassigned]) await list(user);
+      for (const user of [undefined, owner, peer, sarpanch, water, power, assigned, unassigned, volunteer]) await list(user);
       same({
         rows: await prisma.complaint.findMany({ orderBy: { id: 'asc' } }),
         audits: await prisma.auditLog.count(), notifications: await prisma.notification.count(),
       }, before, 'GET collection is read-only even for overdue reports and privileged viewers');
     });
     await test('deleted-account signed session is denied by current-account authentication and mutation handlers', async () => {
-      const deleted = await account('deleted', '18', 'RESIDENT');
+      const deleted = await account('deleted', '19', 'RESIDENT');
       const session = await cookie(deleted);
       const row = await complaint();
       await prisma.user.delete({ where: { id: deleted.id } });

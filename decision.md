@@ -140,10 +140,23 @@ All issues below are open unless a later change entry explicitly records a verif
 - Build: `cmd.exe /d /c "set GRAMSETU_DIST_DIR=.next-build&& npm run build"` PASSED; Prisma client was reused safely while the dev server was active.
 - Lint: `cmd.exe /d /c "npm run lint"` remains unavailable because no lint script is configured. No dependency was added.
 
+### C-005 — OFF-01 and SOS responder protection
+
+- Status: implemented and verified; awaiting focused commit. Browser-level IndexedDB/offline reconnect testing remains open.
+- Changed: `src/lib/offline-queue.ts`, Header/resource/SOS UI, SOS GET/POST/PATCH routes, notification village scoping, saved smoke/API fixture checks.
+- Offline queue now emits queue-change/sync events, preserves retry metadata and failed entries, reports HTTP errors, prevents overlapping sync runs, binds complaint/request replay to the stored current user/village, and refreshes Header counts immediately. Resource requests now queue offline and clearly say they are not matched or sent yet.
+- SOS UI now distinguishes `idle`, `queued`, and `sent`; queued SOS says it is stored locally and not delivered. Successful replay changes the state to submitted; storage/network failures remain visible. Online/offline listeners update the modal state.
+- SOS dashboard reads and updates require a same-village Sarpanch or verified `VOLUNTEER` provider. SOS coordinates/messages are validated, authenticated sender identity is derived server-side, response-time is derived server-side, status transitions are guarded, public SSE contains only village/id/status invalidation data, and notifications are village-scoped.
+- Tests: `node.exe scripts/test-api.mjs` PASSED 60/60 cases and 264/264 assertions, including SOS authorization/validation/transitions. `node.exe scripts/test-smoke.mjs` PASSED 15/15 live read-only checks, including guest SOS dashboard restriction. Full `cmd.exe /d /c "npm test"` PASSED including 25 engine, 65 access, 60 API/264 assertions, and 9 resource/29 assertions.
+- Typecheck: `node.exe node_modules/typescript/bin/tsc --noEmit --incremental false --pretty false` PASSED.
+- Build: `cmd.exe /d /c "set GRAMSETU_DIST_DIR=.next-build&& npm run build"` PASSED.
+- Lint: `cmd.exe /d /c "npm run lint"` remains unavailable because no lint script is configured. No dependency added.
+- Limitation: IndexedDB queue persistence, browser offline toggling, reconnect replay, microphone/GPS permissions, and mobile layout are not proven by the Node/API checks. Test this once in the presentation browser before claiming offline delivery.
+
 ## Rules for subsequent change entries
 
 For each fix, append its issue ID, cause, changed paths, behavior change, exact test/lint/typecheck/build commands and outcomes, remaining limitations, and successful commit hash. Mark work completed only after the relevant check actually passes; otherwise record the blocker and next step.
 
 ## Next action
 
-Commit C-004 using only its intended changes, then fix offline queue/SOS delivery wording and synchronization. Keep the populated demo database intact and use isolated fixtures for regression writes.
+Commit C-005 using only its intended changes, then harden OTP/demo authentication claims and complete the final demo documentation. Keep the populated demo database intact and use isolated fixtures for regression writes.

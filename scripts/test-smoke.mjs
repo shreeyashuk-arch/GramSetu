@@ -74,5 +74,10 @@ await test('Unknown anonymous tracking code is 404', async () => {
   assert.equal(response.status, 404);
 });
 
+await test('Guest SOS dashboard is restricted', async () => {
+  const response = await fetch(`${base}/api/sos`, { signal: AbortSignal.timeout(20000) });
+  assert.equal(response.status, 403);
+});
+
 console.log(`Smoke results: ${passed} passed, ${failed} failed.`);
 if (failed) process.exitCode = 1;

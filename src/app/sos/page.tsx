@@ -18,6 +18,7 @@ export default function SOSDashboardPage() {
   const [alerts, setAlerts] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [accessError, setAccessError] = useState<string>('');
 
   const fetchAlerts = async () => {
     try {
@@ -26,8 +27,11 @@ export default function SOSDashboardPage() {
         const data = await res.json();
         setAlerts(data.alerts || []);
         setStats(data.stats || null);
+        setAccessError('');
+      } else if (res.status === 403) {
+        setAccessError('This command center is restricted to the Sarpanch and verified women-safety responders.');
       }
-    } catch {}
+    } catch { setAccessError('Could not load SOS incidents.'); }
   };
 
   useEffect(() => {
@@ -52,7 +56,6 @@ export default function SOSDashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           status: newStatus,
-          responseTimeMinutes: newStatus === 'RESOLVED' ? 6 : 2,
         }),
       });
 
@@ -60,7 +63,8 @@ export default function SOSDashboardPage() {
         speak(`SOS alert updated to ${newStatus}.`);
         fetchAlerts();
       }
-    } catch {}
+      else setAccessError((await res.json().catch(() => ({}))).error || 'SOS update failed.');
+    } catch { setAccessError('Network error. SOS update was not confirmed.'); }
   };
 
   return (
@@ -78,8 +82,10 @@ export default function SOSDashboardPage() {
         </div>
       </div>
 
+      {accessError && <div role="alert" className="rounded-2xl bg-amber-50 p-4 text-sm font-semibold text-amber-900">{accessError}</div>}
+
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {!accessError && <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="p-5 rounded-3xl bg-red-50 dark:bg-red-950/40 border-2 border-red-500 shadow-sm">
           <span className="text-xs font-black uppercase text-red-600">Active Emergencies</span>
           <div className="text-4xl font-black text-red-700 mt-1">
@@ -103,10 +109,10 @@ export default function SOSDashboardPage() {
           </div>
           <p className="text-[11px] text-slate-400 font-medium mt-1">With 100% volunteer outreach</p>
         </div>
-      </div>
+      </div>}
 
       {/* Alerts Feed */}
-      <div className="space-y-4">
+      {!accessError && <div className="space-y-4">
         <h2 className="text-lg font-black text-slate-900 dark:text-white">Emergency Incident Feed</h2>
 
         <div className="space-y-3">
@@ -191,7 +197,7 @@ export default function SOSDashboardPage() {
             );
           })}
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

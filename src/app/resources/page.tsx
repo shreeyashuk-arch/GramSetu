@@ -21,6 +21,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
+import { queueOfflineItem, QUEUE_SYNCED_EVENT } from '@/lib/offline-queue';
 
 // The listing endpoint exists, but its unfinished form is not part of today's
 // verified demo path. Keep the feature code and hide only the dead control.
@@ -43,6 +44,7 @@ export default function ResourcesPage() {
   const [matchingResults, setMatchingResults] = useState<any[] | null>(null);
   const [submittingReq, setSubmittingReq] = useState<boolean>(false);
   const [requestError, setRequestError] = useState<string>('');
+  const [requestSavedOffline, setRequestSavedOffline] = useState<boolean>(false);
 
   // List Resource Modal State
   const [listModalOpen, setListModalOpen] = useState<boolean>(false);
@@ -95,24 +97,41 @@ export default function ResourcesPage() {
     eventSource.addEventListener('resource_request_matched', refresh);
     eventSource.addEventListener('resource_request_updated', refresh);
     eventSource.addEventListener('open', refresh);
-    return () => eventSource.close();
+    const handleQueueSynced = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (detail?.type === 'REQUEST') refresh();
+    };
+    window.addEventListener(QUEUE_SYNCED_EVENT, handleQueueSynced);
+    return () => {
+      eventSource.close();
+      window.removeEventListener(QUEUE_SYNCED_EVENT, handleQueueSynced);
+    };
   }, [activeCategory]);
 
   const handleRequestSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmittingReq(true);
     setRequestError('');
+    setRequestSavedOffline(false);
 
     try {
+      const payload = {
+        category: reqCategory,
+        title: reqTitle,
+        description: reqDescription,
+        urgency: reqUrgency,
+      };
+      if (!navigator.onLine) {
+        await queueOfflineItem('REQUEST', payload);
+        setRequestSavedOffline(true);
+        setMatchingResults([]);
+        speak('Request saved on this device. Matching will run when the connection returns.');
+        return;
+      }
       const res = await fetch('/api/resources/requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          category: reqCategory,
-          title: reqTitle,
-          description: reqDescription,
-          urgency: reqUrgency,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -126,7 +145,19 @@ export default function ResourcesPage() {
         : 'Request saved. No compatible provider is available yet.');
       fetchRequests();
     } catch {
-      setRequestError('Network error. The request was not confirmed.');
+      try {
+        await queueOfflineItem('REQUEST', {
+          category: reqCategory,
+          title: reqTitle,
+          description: reqDescription,
+          urgency: reqUrgency,
+        });
+        setRequestSavedOffline(true);
+        setMatchingResults([]);
+        speak('Network unavailable. Request saved on this device for later matching.');
+      } catch {
+        setRequestError('Network error and offline storage failed. The request was not saved.');
+      }
     } finally {
       setSubmittingReq(false);
     }
@@ -178,6 +209,7 @@ export default function ResourcesPage() {
              onClick={() => {
                setRequestError('');
                setMatchingResults(null);
+               setRequestSavedOffline(false);
                setRequestModalOpen(true);
              }}
             className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md transition-transform active:scale-95"
@@ -462,7 +494,11 @@ export default function ResourcesPage() {
                   {t('resources.matchedTop')} (Transparent Match Breakdown)
                 </h4>
 
-                {matchingResults.length === 0 ? (
+                {requestSavedOffline ? (
+                  <p className="rounded-xl bg-amber-50 p-4 text-xs text-amber-900">
+                    Request saved on this device — not matched or sent yet. Reconnect and use Sync Now.
+                  </p>
+                ) : matchingResults.length === 0 ? (
                   <p className="rounded-xl bg-amber-50 p-4 text-xs text-amber-900">
                     Request saved, but no compatible provider is available yet. It remains pending for the next listing.
                   </p>
