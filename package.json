@@ -10,8 +10,9 @@
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:seed": "tsx prisma/seed.ts",
-    "test": "tsx scripts/test-engines.ts && tsx scripts/test-access.ts && node scripts/test-api.mjs",
+    "test": "tsx scripts/test-engines.ts && tsx scripts/test-access.ts && node scripts/test-api.mjs && node scripts/test-resource.mjs",
     "test:api": "node scripts/test-api.mjs",
+    "test:resources": "node scripts/test-resource.mjs",
     "test:smoke": "node scripts/test-smoke.mjs"
   },
   "dependencies": {

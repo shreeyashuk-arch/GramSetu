@@ -126,10 +126,24 @@ All issues below are open unless a later change entry explicitly records a verif
 - Build: original generation failed on a Windows DLL lock. Added schema/version-aware client reuse in `scripts/ensure-prisma.mjs`; a first byte-comparison retry also failed because Prisma formats its schema copy. Token-aware comparison preserving quoted values fixed that check. Final `cmd.exe /d /c "set GRAMSETU_DIST_DIR=.next-build&& npm run build"` PASSED without stopping the dev server.
 - Browser limitation: UI compiled successfully but actual mobile clicks, microphone/GPS permissions, IndexedDB, and reconnect behavior are not yet browser-verified. Demo auth/OTP bypass hardening, sensitive SOS delivery, and resource-action protection remain to be addressed.
 
+### C-004 — MAT-01/MAT-02 and resource request workflow
+
+- Status: implemented and verified; awaiting focused commit. Offline queue/SOS and OTP/demo-auth hardening remain open.
+- Changed: resource request GET/POST/PATCH routes, resource page, TopTicker, package test scripts, and isolated resource test wrapper/fixture. Existing matching/priority helpers are included in the resource scoring slice because their working-tree fixes are now covered by regression tests.
+- Matching now filters by exact resource category before ranking, clamps finite trust scores without turning `0` into `1`, deduplicates known vulnerability groups before priority calculation, validates request category/date/location/duration/urgency/zone, and leaves no-compatible-resource requests pending rather than matching an incompatible listing.
+- Request reads/writes require a current authenticated resident/Sarpanch or provider session. Queries are village-scoped; residents see their own requests, providers see only requests assigned to them, and provider actions require the current matched provider.
+- Provider transitions are guarded and conditional: `MATCHED -> ACCEPTED`, `MATCHED -> DECLINE/rematch or PENDING`, and `ACCEPTED -> COMPLETED`. Declined providers are excluded, next-provider notifications are written transactionally, and SSE sends minimal update events after commit.
+- The UI now restricts actions to the assigned provider, exposes completion, reports API errors, handles zero matches honestly, includes `HUMAN_RESOURCES`, refreshes on resource SSE events, and hides the unfinished listing button behind `SHOW_RESOURCE_LISTING = false` without deleting the server listing code.
+- Resource regression: `node.exe scripts/test-resource.mjs` PASSED 9/9 cases and 29/29 assertions using an exclusively created and removed SQLite database. It covers guest/foreign access, invalid input, category filtering, match/accept/complete, decline/rematch/notification, pending no-match, and scoring edges.
+- Full tests: `cmd.exe /d /c "npm test"` PASSED: 25 engine assertions, 65 access-policy cases, 57 API cases/245 assertions, and 9 resource cases/29 assertions.
+- Typecheck: `node.exe node_modules/typescript/bin/tsc --noEmit --incremental false --pretty false` PASSED.
+- Build: `cmd.exe /d /c "set GRAMSETU_DIST_DIR=.next-build&& npm run build"` PASSED; Prisma client was reused safely while the dev server was active.
+- Lint: `cmd.exe /d /c "npm run lint"` remains unavailable because no lint script is configured. No dependency was added.
+
 ## Rules for subsequent change entries
 
 For each fix, append its issue ID, cause, changed paths, behavior change, exact test/lint/typecheck/build commands and outcomes, remaining limitations, and successful commit hash. Mark work completed only after the relevant check actually passes; otherwise record the blocker and next step.
 
 ## Next action
 
-Commit C-003 using only its intended changes, then fix resource category eligibility, scoring edge cases, and authorized provider request transitions. Keep the populated demo database intact and use isolated fixtures for regression writes.
+Commit C-004 using only its intended changes, then fix offline queue/SOS delivery wording and synchronization. Keep the populated demo database intact and use isolated fixtures for regression writes.
