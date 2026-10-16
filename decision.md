@@ -151,6 +151,18 @@ All issues below are open unless a later change entry explicitly records a verif
 - Typecheck: `node.exe node_modules/typescript/bin/tsc --noEmit --incremental false --pretty false` PASSED.
 - Build: `cmd.exe /d /c "set GRAMSETU_DIST_DIR=.next-build&& npm run build"` PASSED.
 - Lint: `cmd.exe /d /c "npm run lint"` remains unavailable because no lint script is configured. No dependency added.
+
+### C-006 — OTP/demo authentication and documentation claims
+
+- Status: implemented and verified; awaiting focused commit.
+- Changed: demo-login, OTP send/verify, login copy, privacy copy, `.env.example`, README, and API regression fixture.
+- Demo role switching is now server-gated by `NEXT_PUBLIC_DEMO_MODE=true` and rejects unknown roles. The local setup explicitly enables this only in the ignored local `.env`; non-demo deployments cannot use the shortcut.
+- OTP send validates exact ten-digit phones, uses cryptographic random digits, returns a displayed code only in explicit demo mode, and reports that real OTP delivery is unconfigured otherwise. OTP verification requires the stored six-digit code, removes the universal `123456` bypass, and ignores submitted privileged role/village/zone claims when creating a new account; new accounts are residents in the default village.
+- Privacy/README wording now calls the controls prototype/DPDP-aligned rather than claiming legal compliance, qualifies anonymous rate limiting and infrastructure logs, describes app-open offline sync accurately, and marks the old live script as a legacy mutation walkthrough rather than proof.
+- `.env.example` no longer contains a reusable known JWT secret; local setup generates one randomly.
+- Regression: `node.exe scripts/test-api.mjs` PASSED 62/62 cases and 271/271 assertions, including demo gate, generated OTP, and privilege-escalation prevention. Live `node.exe scripts/test-smoke.mjs` PASSED 15/15.
+- Typecheck: `node.exe node_modules/typescript/bin/tsc --noEmit --incremental false --pretty false` PASSED.
+- Full build and `npm test` are the final checks to run before this change is committed.
 - Limitation: IndexedDB queue persistence, browser offline toggling, reconnect replay, microphone/GPS permissions, and mobile layout are not proven by the Node/API checks. Test this once in the presentation browser before claiming offline delivery.
 
 ## Rules for subsequent change entries
@@ -159,4 +171,4 @@ For each fix, append its issue ID, cause, changed paths, behavior change, exact 
 
 ## Next action
 
-Commit C-005 using only its intended changes, then harden OTP/demo authentication claims and complete the final demo documentation. Keep the populated demo database intact and use isolated fixtures for regression writes.
+Commit C-006 using only its intended changes, then perform one final full check and browser rehearsal. Remaining non-blockers are service-worker registration/cache strategy, browser IndexedDB/offline verification, mobile layout, and the missing lint script.

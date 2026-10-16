@@ -74,6 +74,9 @@ async function main() {
     const anonymous = await import('../src/app/api/complaints/anonymous/[code]/route');
     const sos = await import('../src/app/api/sos/route');
     const sosDetail = await import('../src/app/api/sos/[id]/route');
+    const demoLogin = await import('../src/app/api/auth/demo-login/route');
+    const otpSend = await import('../src/app/api/auth/otp/send/route');
+    const otpVerify = await import('../src/app/api/auth/otp/verify/route');
 
     // Stable synthetic identifiers and timestamps make behavior reproducible.
     const village = await prisma.village.create({ data: {
@@ -156,6 +159,28 @@ async function main() {
       description: 'The outlet valve beside the village tank needs a lasting repair.',
       ...exact, zoneId: zone.id, urgency: 3, peopleAffected: 2, timeSensitivity: 3,
     };
+
+    await test('demo login is disabled unless explicitly enabled', async () => {
+      const previous = process.env.NEXT_PUBLIC_DEMO_MODE;
+      delete process.env.NEXT_PUBLIC_DEMO_MODE;
+      await json(demoLogin.POST(request('/api/auth/demo-login', 'POST', { role: 'SARPANCH' })), 403);
+      process.env.NEXT_PUBLIC_DEMO_MODE = previous;
+    });
+    await test('demo OTP cannot create a privileged role', async () => {
+      process.env.NEXT_PUBLIC_DEMO_MODE = 'true';
+      await json(otpSend.POST(request('/api/auth/otp/send', 'POST', { phone: '0000000020' })), 200);
+      const otpResponse = await otpSend.POST(request('/api/auth/otp/send', 'POST', { phone: '0000000020' }));
+      const otpBody = await otpResponse.json();
+      const code = otpBody.demoOtp as string;
+      ok(/^\d{6}$/.test(code), 'demo OTP is six digits');
+      const verified = await json(otpVerify.POST(request('/api/auth/otp/verify', 'POST', {
+        phone: '0000000020', code, role: 'SARPANCH', villageId: foreign.id,
+      })), 200);
+      equal(verified.user.role, 'RESIDENT', 'submitted role cannot create a privileged account');
+      const created = await prisma.user.findUniqueOrThrow({ where: { phone: '0000000020' } });
+      equal(created.role, 'RESIDENT', 'stored role is resident');
+      equal(created.villageId, village.id, 'new account uses the default village');
+    });
 
     async function json(response: Response | Promise<Response>, expected: number) {
       const value = await response;
