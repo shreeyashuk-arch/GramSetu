@@ -77,6 +77,7 @@ async function main() {
     const demoLogin = await import('../src/app/api/auth/demo-login/route');
     const otpSend = await import('../src/app/api/auth/otp/send/route');
     const otpVerify = await import('../src/app/api/auth/otp/verify/route');
+    const deleteData = await import('../src/app/api/user/delete-data/route');
 
     // Stable synthetic identifiers and timestamps make behavior reproducible.
     const village = await prisma.village.create({ data: {
@@ -582,6 +583,28 @@ async function main() {
       await json(collection.POST(request('/api/complaints', 'POST', createBody, session)), 401);
       await json(support.POST(request(`/api/complaints/${row.id}/support`, 'POST', undefined, session),
         { params: { id: row.id } }), 401);
+    });
+    await test('data deletion atomically removes account-linked records', async () => {
+      const erase = await account('erase', '21', 'RESIDENT');
+      const eraseSession = await cookie(erase);
+      const eraseComplaint = await complaint({ id: 'regression-erase-complaint', residentId: erase.id, assignedProviderId: null });
+      const eraseSos = await prisma.sOSAlert.create({ data: {
+        id: 'regression-erase-sos', villageId: village.id, senderId: erase.id, senderName: erase.name,
+        senderPhone: erase.phone, lat: exact.lat, lng: exact.lng, message: 'Erase fixture SOS',
+      } });
+      await prisma.auditLog.create({ data: { id: 'regression-erase-audit', complaintId: eraseComplaint.id, userId: erase.id, role: 'RESIDENT', action: 'CREATED' } });
+      await prisma.oTP.create({ data: { id: 'regression-erase-otp', phone: erase.phone, code: '123456', expiresAt: new Date(Date.now() + 60000) } });
+      const deletionResponse = await deleteData.POST(request('/api/user/delete-data', 'POST', undefined, eraseSession));
+      equal(deletionResponse.status, 200, 'data deletion succeeds');
+      equal(await prisma.user.findUnique({ where: { id: erase.id } }), null, 'user is deleted');
+      equal((await prisma.complaint.findUniqueOrThrow({ where: { id: eraseComplaint.id } })).residentId, null, 'complaint owner is removed');
+      const anonymizedComplaint = await prisma.complaint.findUniqueOrThrow({ where: { id: eraseComplaint.id } });
+      equal(anonymizedComplaint.isAnonymous, true, 'civic complaint history is anonymized');
+      const anonymizedSos = await prisma.sOSAlert.findUniqueOrThrow({ where: { id: eraseSos.id } });
+      equal(anonymizedSos.senderId, null, 'SOS sender identity is removed');
+      equal(anonymizedSos.senderPhone, 'Redacted', 'SOS phone is redacted');
+      equal(await prisma.auditLog.findUnique({ where: { id: 'regression-erase-audit' } }).then(log => log?.userId), null, 'audit actor is removed');
+      equal(await prisma.oTP.findUnique({ where: { id: 'regression-erase-otp' } }), null, 'pending OTP is removed');
     });
 
     report(`API RESULT: ${passedCases}/${cases} cases passed; ${passedAssertions}/${assertions} assertions passed.`);

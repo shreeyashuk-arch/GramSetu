@@ -112,7 +112,7 @@ All issues below are open unless a later change entry explicitly records a verif
 
 ### C-003 — CMP-01 and complaint portions of SEC-01/PRIV-01
 
-- Status: implemented and verified; awaiting focused commit. Resource/SOS security and offline issues remain open.
+- Status: implemented and verified; committed as `8eafa5a` (`fix: secure complaint access and complete resolution workflow`).
 - Changed: complaint collection/detail/support/tracking routes; `src/lib/auth.ts`, `src/lib/complaint-access.ts`, `src/lib/complaint-update.ts`, `src/lib/spam-filter.ts`; tracker, anonymous page, Header, and DemoBar; new access/API regression scripts; `package.json`; `scripts/ensure-prisma.mjs`.
 - Complaint actions now require a current account, matching village/department/assignment, one valid action, legal status transitions, and proof for resolution. Only the recorded filer can confirm a resolved report; guarded transactional updates reject stale/replayed changes.
 - The tracker exposes authorized start-work/proof/confirmation controls, shows action failures, and refreshes after SSE/reconnect. Demo role switching reloads client identity instead of leaving stale role-specific state.
@@ -128,7 +128,7 @@ All issues below are open unless a later change entry explicitly records a verif
 
 ### C-004 — MAT-01/MAT-02 and resource request workflow
 
-- Status: implemented and verified; awaiting focused commit. Offline queue/SOS and OTP/demo-auth hardening remain open.
+- Status: implemented and verified; committed as `12f26c2` (`fix: secure resource matching and provider actions`). Offline queue/SOS and OTP/demo-auth hardening were completed in later commits.
 - Changed: resource request GET/POST/PATCH routes, resource page, TopTicker, package test scripts, and isolated resource test wrapper/fixture. Existing matching/priority helpers are included in the resource scoring slice because their working-tree fixes are now covered by regression tests.
 - Matching now filters by exact resource category before ranking, clamps finite trust scores without turning `0` into `1`, deduplicates known vulnerability groups before priority calculation, validates request category/date/location/duration/urgency/zone, and leaves no-compatible-resource requests pending rather than matching an incompatible listing.
 - Request reads/writes require a current authenticated resident/Sarpanch or provider session. Queries are village-scoped; residents see their own requests, providers see only requests assigned to them, and provider actions require the current matched provider.
@@ -142,7 +142,7 @@ All issues below are open unless a later change entry explicitly records a verif
 
 ### C-005 — OFF-01 and SOS responder protection
 
-- Status: implemented and verified; awaiting focused commit. Browser-level IndexedDB/offline reconnect testing remains open.
+- Status: implemented and verified; committed as `73f774a` (`fix: make offline sync and SOS delivery truthful`). Browser-level IndexedDB/offline reconnect testing remains open.
 - Changed: `src/lib/offline-queue.ts`, Header/resource/SOS UI, SOS GET/POST/PATCH routes, notification village scoping, saved smoke/API fixture checks.
 - Offline queue now emits queue-change/sync events, preserves retry metadata and failed entries, reports HTTP errors, prevents overlapping sync runs, binds complaint/request replay to the stored current user/village, and refreshes Header counts immediately. Resource requests now queue offline and clearly say they are not matched or sent yet.
 - SOS UI now distinguishes `idle`, `queued`, and `sent`; queued SOS says it is stored locally and not delivered. Successful replay changes the state to submitted; storage/network failures remain visible. Online/offline listeners update the modal state.
@@ -154,7 +154,7 @@ All issues below are open unless a later change entry explicitly records a verif
 
 ### C-006 — OTP/demo authentication and documentation claims
 
-- Status: implemented and verified; awaiting focused commit.
+- Status: implemented and verified; committed as `62dde32` (`fix: gate demo authentication and clarify privacy claims`).
 - Changed: demo-login, OTP send/verify, login copy, privacy copy, `.env.example`, README, and API regression fixture.
 - Demo role switching is now server-gated by `NEXT_PUBLIC_DEMO_MODE=true` and rejects unknown roles. The local setup explicitly enables this only in the ignored local `.env`; non-demo deployments cannot use the shortcut.
 - OTP send validates exact ten-digit phones, uses cryptographic random digits, returns a displayed code only in explicit demo mode, and reports that real OTP delivery is unconfigured otherwise. OTP verification requires the stored six-digit code, removes the universal `123456` bypass, and ignores submitted privileged role/village/zone claims when creating a new account; new accounts are residents in the default village.
@@ -162,8 +162,18 @@ All issues below are open unless a later change entry explicitly records a verif
 - `.env.example` no longer contains a reusable known JWT secret; local setup generates one randomly.
 - Regression: `node.exe scripts/test-api.mjs` PASSED 62/62 cases and 271/271 assertions, including demo gate, generated OTP, and privilege-escalation prevention. Live `node.exe scripts/test-smoke.mjs` PASSED 15/15.
 - Typecheck: `node.exe node_modules/typescript/bin/tsc --noEmit --incremental false --pretty false` PASSED.
-- Full build and `npm test` are the final checks to run before this change is committed.
+- Full build and `npm test` passed before this change was committed.
 - Limitation: IndexedDB queue persistence, browser offline toggling, reconnect replay, microphone/GPS permissions, and mobile layout are not proven by the Node/API checks. Test this once in the presentation browser before claiming offline delivery.
+
+### C-007 — PWA registration, transactional erasure, and final demo hardening
+
+- Status: implemented and verified; awaiting focused commit.
+- Changed: `src/components/pwa/ServiceWorkerRegistration.tsx`, `src/app/layout.tsx`, `public/sw.js`, account deletion route, map tooltip rendering, and the isolated API fixture.
+- The service worker is now registered client-side, uses a bumped cache version, no longer precaches the nonexistent `/offline` route, uses network-first navigation, avoids API/Next data requests, and returns a 503 text response instead of homepage HTML for unavailable assets.
+- Account deletion is transactional and covers complaint ownership/provider links, exact locations, anonymous tracking codes, SOS sender identity/contact/location, audit actor links, pending OTPs, supporters, resource requests, matched-provider links, notifications, and the user record. The response no longer claims legal compliance.
+- Map tooltip content from complaint/resource/SOS data is HTML-escaped before Leaflet interpolation.
+- Final isolated API regression: `node.exe scripts/test-api.mjs` PASSED 63/63 cases and 279/279 assertions, including transactional account erasure. Full engine/access/resource coverage remains in `npm test`.
+- Final verification: `cmd.exe /d /c "npm test"` PASSED (25 engine, 65 access, 63 API/279 assertions, 9 resource/29 assertions); typecheck PASSED; `cmd.exe /d /c "set GRAMSETU_DIST_DIR=.next-build&& npm run build"` PASSED; `node.exe scripts/test-smoke.mjs` PASSED 15/15. Browser service-worker/IndexedDB/mobile rehearsal is still manual and not executed by this CLI.
 
 ## Rules for subsequent change entries
 
@@ -171,4 +181,4 @@ For each fix, append its issue ID, cause, changed paths, behavior change, exact 
 
 ## Next action
 
-Commit C-006 using only its intended changes, then perform one final full check and browser rehearsal. Remaining non-blockers are service-worker registration/cache strategy, browser IndexedDB/offline verification, mobile layout, and the missing lint script.
+Commit C-007 using only its intended changes. After that, the only remaining work before the demo is manual browser rehearsal: login/role switching, complaint lifecycle, resource provider action, SOS display, and offline queue/reconnect. Remaining non-blockers are microphone/GPS permissions, mobile layout, and the missing lint script.
