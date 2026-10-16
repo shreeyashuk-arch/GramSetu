@@ -1,0 +1,140 @@
+[
+  {
+    "id": "pm-kusum",
+    "targetGroup": "farmer",
+    "needCategory": "irrigation",
+    "nameEn": "PM-KUSUM (Solar Agricultural Pump Scheme)",
+    "nameHi": "पीएम-कुसुम (सौर कृषि पंप योजना)",
+    "nameMr": "पीएम-कुसुम (सौर कृषी पंप योजना)",
+    "department": "Ministry of New and Renewable Energy",
+    "descriptionEn": "Up to 90% subsidy for setting up standalone solar powered water pumps and solarizing grid-connected agricultural pumps.",
+    "descriptionHi": "खेतों में सोलर पंप लगाने और ग्रिड से जुड़े कृषि पंपों को सौर ऊर्जा में बदलने के लिए 90% तक की भारी सब्सिडी।",
+    "descriptionMr": "शेतात सौर कृषी पंप बसवण्यासाठी आणि वीज बिलातून कायमची मुक्ती मिळवण्यासाठी ९०% पर्यंत शासकीय अनुदान.",
+    "benefits": "Reliable daytime irrigation without power cut issues and zero electricity bill.",
+    "documents": [
+      "7/12 Land Record (Satbara Utara)",
+      "Aadhaar Card",
+      "Bank Passbook copy",
+      "Passport size photo",
+      "Electricity board NOC (if applicable)"
+    ],
+    "whereToApply": "Apply at MahaDBT portal or your local Common Service Centre (CSC / Maha e-Seva Kendra)."
+  },
+  {
+    "id": "pm-kisan",
+    "targetGroup": "farmer",
+    "needCategory": "agriculture",
+    "nameEn": "PM-Kisan Samman Nidhi",
+    "nameHi": "प्रधानमंत्री किसान सम्मान निधि",
+    "nameMr": "प्रधानमंत्री किसान सन्मान निधी",
+    "department": "Ministry of Agriculture & Farmers Welfare",
+    "descriptionEn": "Direct income support of ₹6,000 per year in 3 equal installments into the farmer's bank account.",
+    "descriptionHi": "किसानों के बैंक खातों में ₹6,000 प्रति वर्ष 3 समान किस्तों में प्रत्यक्ष आर्थिक सहायता।",
+    "descriptionMr": "शेतकऱ्यांच्या बँक खात्यात दरवर्षी ₹६,००० तीन समान हप्त्यांमध्ये थेट जमा.",
+    "benefits": "Covers seed, fertilizer, and agricultural input expenses directly before sowing seasons.",
+    "documents": [
+      "Aadhaar card linked with mobile",
+      "Land Ownership documents (Khatauni / 7-12)",
+      "Active bank account with DBT enabled"
+    ],
+    "whereToApply": "Online via pmkisan.gov.in or Panchayat Talathi / Gram Sevak office."
+  },
+  {
+    "id": "jal-jeevan",
+    "targetGroup": "all",
+    "needCategory": "water",
+    "nameEn": "Jal Jeevan Mission (Har Ghar Jal)",
+    "nameHi": "जल जीवन मिशन (हर घर नल से जल)",
+    "nameMr": "जल जीवन मिशन (हर घर नळ)",
+    "department": "Department of Drinking Water and Sanitation",
+    "descriptionEn": "Providing safe and adequate drinking water through individual household tap connections to all rural homes.",
+    "descriptionHi": "प्रत्येक ग्रामीण परिवार के घर में नल से शुद्ध और पर्याप्त पीने का पानी पहुंचाने की योजना।",
+    "descriptionMr": "प्रत्येक ग्रामीण कुटुंबाला नळाद्वारे शुद्ध आणि पुरेसे पिण्याचे पाणी थेट घरात उपलब्ध करून देण्याची योजना.",
+    "benefits": "Free or subsidized household tap connection with verified potability testing.",
+    "documents": [
+      "Proof of residence (Ration Card or Voter ID)",
+      "Aadhaar Card",
+      "House Tax receipt"
+    ],
+    "whereToApply": "Gram Panchayat Water & Sanitation Committee (VWSC) or Sarpanch."
+  },
+  {
+    "id": "ayushman-bharat",
+    "targetGroup": "all",
+    "needCategory": "health",
+    "nameEn": "Ayushman Bharat (PM-JAY Health Cover)",
+    "nameHi": "आयुष्मान भारत (पीएम-जय स्वास्थ्य कार्ड)",
+    "nameMr": "आयुष्मान भारत (पीएम-जय मोफत उपचार)",
+    "department": "National Health Authority",
+    "descriptionEn": "Cashless health cover up to ₹5,00,000 per family per year for secondary and tertiary hospital care.",
+    "descriptionHi": "प्रति परिवार प्रति वर्ष ₹5 लाख तक का कैशलेस और मुफ्त इलाज सरकारी व निजी सूचीबद्ध अस्पतालों में।",
+    "descriptionMr": "प्रति कुटुंब दरवर्षी ₹५ लाख रुपयांपर्यंतचे मोफत आणि कॅशलेस उपचार शासकीय व नामांकित खाजगी रुग्णालयात.",
+    "benefits": "Covers surgery, hospitalization, diagnostic tests, and critical illnesses.",
+    "documents": [
+      "Ration Card (NFSA yellow/orange)",
+      "Aadhaar Card for all family members",
+      "Mobile number"
+    ],
+    "whereToApply": "Primary Health Centre (PHC), Rural Hospital, or CSC Kendra."
+  },
+  {
+    "id": "pmay-gramin",
+    "targetGroup": "all",
+    "needCategory": "housing",
+    "nameEn": "Pradhan Mantri Awas Yojana - Gramin (PMAY-G)",
+    "nameHi": "प्रधानमंत्री आवास योजना - ग्रामीण",
+    "nameMr": "प्रधानमंत्री आवास योजना - ग्रामीण (पक्के घर)",
+    "department": "Ministry of Rural Development",
+    "descriptionEn": "Financial assistance of ₹1.20 Lakh to ₹1.30 Lakh to homeless and kutcha-house rural families to construct a pucca house with toilet.",
+    "descriptionHi": "बेघर और कच्चे मकान में रहने वाले परिवारों को शौचालय युक्त पक्का मकान बनाने के लिए ₹1.20 से ₹1.30 लाख की सीधी मदद।",
+    "descriptionMr": "कच्च्या घरात किंवा झोपडीत राहणाऱ्या कुटुंबांना शौचालयासह पक्के घर बांधण्यासाठी ₹१.२० ते ₹१.३० लाख थेट अनुदान.",
+    "benefits": "Direct bank transfer in installments tagged to geo-verified construction milestones.",
+    "documents": [
+      "SECC survey inclusion proof or Gram Sabha resolution",
+      "Aadhaar Card",
+      "Bank Account details",
+      "Land possession receipt"
+    ],
+    "whereToApply": "Gram Panchayat Gram Sevak or Block Development Office (BDO)."
+  },
+  {
+    "id": "lakhpati-didi",
+    "targetGroup": "women",
+    "needCategory": "livelihood",
+    "nameEn": "Lakhpati Didi & Women SHG Credit Guarantee",
+    "nameHi": "लखपति दीदी एवं महिला स्वयं सहायता समूह ऋण योजना",
+    "nameMr": "लखपती दीदी आणि महिला बचत गट आर्थिक सहाय्य",
+    "department": "Ministry of Rural Development & NRLM",
+    "descriptionEn": "Interest subvention, skills training, and collateral-free microloans for women in Self-Help Groups to establish micro-enterprises.",
+    "descriptionHi": "महिला स्वयं सहायता समूहों को कम ब्याज पर ऋण, कौशल प्रशिक्षण और कृषि/डेयरी उद्यम शुरू करने के लिए आर्थिक सहयोग।",
+    "descriptionMr": "महिला बचत गटांना शून्य किंवा अत्यंत कमी व्याजाने कर्ज, व्यावसायिक प्रशिक्षण आणि शेती/कुक्कुटपालन/दुग्ध व्यवसाय सुरू करण्यासाठी मदत.",
+    "benefits": "Guaranteed income generation to earn at least ₹1,00,000 per year per household.",
+    "documents": [
+      "SHG Membership passbook",
+      "Aadhaar Card",
+      "Group Resolution copy",
+      "Bank Account details"
+    ],
+    "whereToApply": "Village Umed / NRLM Community Resource Person (CRP) or Gram Panchayat."
+  },
+  {
+    "id": "pm-vishwakarma",
+    "targetGroup": "artisan",
+    "needCategory": "tools",
+    "nameEn": "PM Vishwakarma Scheme (Artisans & Craftsmen)",
+    "nameHi": "पीएम विश्वकर्मा योजना (कारीगर व मिस्त्री)",
+    "nameMr": "पीएम विश्वकर्मा योजना (सुतार, लोहार, गवंडी, वायरमन)",
+    "department": "Ministry of Micro, Small and Medium Enterprises",
+    "descriptionEn": "Collateral-free credit up to ₹3 Lakh at 5% interest, ₹15,000 modern tool kit incentive, and skill training with stipend for 18 traditional trades.",
+    "descriptionHi": "बढ़ई, लोहार, कुम्हार, राजमिस्त्री, धोबी और मोची जैसे 18 पारंपरिक कारीगरों को ₹15,000 की टूलकिट और ₹3 लाख तक आसान ऋण।",
+    "descriptionMr": "सुतार, लोहार, गवंडी, कुंभार, चर्मकार आणि इतर पारंपारिक कारागिरांना ₹१५,००० ची आधुनिक टूलकिट आणि ₹३ लाखांपर्यंत स्वस्त कर्ज.",
+    "benefits": "Free certified training, modern equipment voucher, and low-interest working capital.",
+    "documents": [
+      "Aadhaar Card with biometric verification",
+      "Ration Card",
+      "Bank account details",
+      "Proof of trade practice"
+    ],
+    "whereToApply": "Nearest CSC center with Sarpanch stage-1 verification."
+  }
+]

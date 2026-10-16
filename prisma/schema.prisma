@@ -1,0 +1,266 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Village {
+  id        String   @id @default(cuid())
+  name      String
+  block     String
+  district  String
+  state     String
+  lat       Float
+  lng       Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  zones     Zone[]
+  users     User[]
+  posts     Post[]
+  complaints Complaint[]
+  resources Resource[]
+  requests  ResourceRequest[]
+  sosAlerts SOSAlert[]
+  notifications Notification[]
+}
+
+model Zone {
+  id        String   @id @default(cuid())
+  villageId String
+  name      String   // e.g., "Zone A (North Ward)", "Zone B (Bazaar)", "Zone C (Harijan Vasti)"
+  code      String   // e.g., "ZA", "ZB", "ZC"
+  createdAt DateTime @default(now())
+
+  village   Village  @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  users     User[]
+  complaints Complaint[]
+  requests  ResourceRequest[]
+}
+
+model User {
+  id               String   @id @default(cuid())
+  phone            String   @unique
+  name             String
+  role             String   // RESIDENT, SARPANCH, ORGANIZATION, PROVIDER
+  villageId        String
+  zoneId           String?
+  language         String   @default("hi") // en, hi, mr
+  organizationType String?  // JAL_SHAKTI, MSEDCL_ELECTRICITY, PHC_HEALTH, PWD_ROADS, KVK_AGRICULTURE, PANCHAYAT
+  providerCategory String?  // TRACTOR_OWNER, ELECTRICIAN, PLUMBER, AMBULANCE_DRIVER, TEACHER, DOCTOR, VOLUNTEER
+  skills           String?  // JSON string or comma-separated
+  isVerified       Boolean  @default(false)
+  trustScore       Float    @default(1.0)
+  avatar           String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  village          Village  @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  zone             Zone?    @relation(fields: [zoneId], references: [id])
+  posts            Post[]
+  complaints       Complaint[] @relation("ResidentComplaints")
+  assignedComplaints Complaint[] @relation("ProviderComplaints")
+  resources        Resource[]
+  requests         ResourceRequest[] @relation("ResidentRequests")
+  matchedRequests  ResourceRequest[] @relation("ProviderRequests")
+  supporters       ComplaintSupporter[]
+  auditLogs        AuditLog[]
+  notifications    Notification[]
+}
+
+model OTP {
+  id        String   @id @default(cuid())
+  phone     String
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Post {
+  id          String   @id @default(cuid())
+  villageId   String
+  authorId    String
+  type        String   // ANNOUNCEMENT, EMERGENCY, SCHEME, CAMP, SCHEDULE
+  title       String
+  body        String
+  translations String? // JSON: { en: {title, body}, hi: {title, body}, mr: {title, body} }
+  image       String?
+  isPinned    Boolean  @default(false)
+  targetZone  String?  // null means all zones
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  village     Village  @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+}
+
+model Complaint {
+  id                    String   @id @default(cuid())
+  code                  String   @unique // e.g. CMP-2026-001
+  villageId             String
+  zoneId                String?
+  residentId            String?  // null if anonymous
+  isAnonymous           Boolean  @default(false)
+  anonymousTrackingCode String?  // e.g. GS-ANON-9123
+  category              String   // WATER, ELECTRICITY, ROADS, TRANSPORT, HEALTH, AGRICULTURE, EDUCATION, SANITATION, WOMEN_SAFETY, OTHER
+  title                 String
+  description           String
+  voiceTranscription    String?
+  photoUrl              String?
+  proofPhotoUrl         String?
+  lat                   Float
+  lng                   Float
+  coarseLat             Float    // ~200m snapped for public privacy
+  coarseLng             Float
+  address               String?
+  
+  priorityScore         Float    @default(50.0) // 0 - 100
+  priorityBand          String   @default("MEDIUM") // CRITICAL, HIGH, MEDIUM, LOW
+  priorityFactors       String?  // JSON: { urgency, peopleAffected, vulnerability, timeSensitivity, daysOpen, explanation }
+
+  status                String   @default("SUBMITTED") // SUBMITTED, VERIFIED, ASSIGNED, ACCEPTED, IN_PROGRESS, RESOLVED, CLOSED, REJECTED, ESCALATED, REOPENED
+  assignedOrgType       String?  // e.g. JAL_SHAKTI, MSEDCL_ELECTRICITY, etc.
+  assignedProviderId    String?
+
+  slaHours              Int      @default(48)
+  slaExpiresAt          DateTime?
+  escalationLevel       Int      @default(0) // 0: Local, 1: Org, 2: Sarpanch/Neighbouring, 3: Block/District
+
+  supporterCount        Int      @default(0)
+  parentComplaintId     String?  // if merged as duplicate
+
+  residentRating        Int?     // 1-5
+  residentFeedback      String?
+  residentConfirmed     Boolean? // true = Yes, false = No (reopen)
+
+  isSpam                Boolean  @default(false)
+  spamReason            String?
+  moderationStatus      String   @default("APPROVED") // APPROVED, PENDING, FLAGGED, REJECTED
+
+  proxyFiledBy          String?  // Name & role of proxy filer
+  proxyPhone            String?  // Phone of original complainant
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  village               Village  @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  zone                  Zone?    @relation(fields: [zoneId], references: [id])
+  resident              User?    @relation("ResidentComplaints", fields: [residentId], references: [id])
+  assignedProvider      User?    @relation("ProviderComplaints", fields: [assignedProviderId], references: [id])
+  supporters            ComplaintSupporter[]
+  auditLogs             AuditLog[]
+}
+
+model ComplaintSupporter {
+  id          String   @id @default(cuid())
+  complaintId String
+  userId      String
+  createdAt   DateTime @default(now())
+
+  complaint   Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([complaintId, userId])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  complaintId String?
+  userId      String?
+  role        String
+  action      String   // CREATED, STATUS_CHANGE, ASSIGNED, ESCALATED, RESOLVED, PROXY_FILED, RATED, MODERATED
+  details     String?  // JSON text
+  createdAt   DateTime @default(now())
+
+  complaint   Complaint? @relation(fields: [complaintId], references: [id], onDelete: SetNull)
+  user        User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model Resource {
+  id                String   @id @default(cuid())
+  villageId         String
+  ownerId           String
+  category          String   // EQUIPMENT, VEHICLES, SKILLED_PEOPLE, HUMAN_RESOURCES, FACILITIES
+  name              String
+  description       String
+  capacity          String?  // e.g. "45 HP", "7 Seater", "200 Persons"
+  serviceArea       String?  // e.g. "Zone A & Zone B"
+  availabilitySlots String?  // e.g. "Mon-Sat 7am-6pm", "Emergency 24x7"
+  priceType         String   @default("SUBSIDIZED") // FREE, SUBSIDIZED, COMMERCIAL
+  priceAmount       Float?
+  contactPhone      String
+  isAvailable       Boolean  @default(true)
+  lat               Float
+  lng               Float
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  village           Village  @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  owner             User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  requests          ResourceRequest[]
+}
+
+model ResourceRequest {
+  id                String   @id @default(cuid())
+  villageId         String
+  zoneId            String?
+  requesterId       String
+  category          String
+  title             String
+  description       String
+  neededAt          DateTime
+  durationHours     Int      @default(4)
+  urgency           String   @default("MEDIUM") // LOW, MEDIUM, HIGH, EMERGENCY
+  resourceId        String?
+  matchedProviderId String?
+  matchScore        Float?
+  matchReason       String?  // JSON text: { proximity, availability, suitability, reliability, responseSpeed }
+  status            String   @default("PENDING") // PENDING, MATCHED, ACCEPTED, DECLINED, COMPLETED, CANCELLED
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  village           Village  @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  zone              Zone?    @relation(fields: [zoneId], references: [id])
+  requester         User     @relation("ResidentRequests", fields: [requesterId], references: [id], onDelete: Cascade)
+  matchedProvider   User?    @relation("ProviderRequests", fields: [matchedProviderId], references: [id])
+  resource          Resource? @relation(fields: [resourceId], references: [id])
+}
+
+model SOSAlert {
+  id                  String   @id @default(cuid())
+  villageId           String
+  zoneId              String?
+  senderId            String?
+  senderName          String
+  senderPhone         String
+  lat                 Float
+  lng                 Float
+  message             String
+  status              String   @default("ACTIVE") // ACTIVE, ACKNOWLEDGED, RESOLVED
+  responseTimeMinutes Int?
+  notes               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  village             Village  @relation(fields: [villageId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  villageId   String
+  recipientId String?  // null if broad / role based
+  targetRole  String?  // RESIDENT, SARPANCH, ORGANIZATION, PROVIDER, ALL
+  type        String   // EMERGENCY, POST, SOS, STATUS_UPDATE, ASSIGNMENT, MODERATION
+  title       String
+  message     String
+  link        String?
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  village     Village  @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  recipient   User?    @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+}

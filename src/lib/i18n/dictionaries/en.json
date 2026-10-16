@@ -1,0 +1,150 @@
+{
+  "app": {
+    "name": "GramSetu",
+    "tagline": "Village Needs & Resources Coordination Platform",
+    "voiceHelp": "Read screen aloud",
+    "offlineNotice": "You are offline. Actions will be saved and synced automatically.",
+    "syncNow": "Sync Now",
+    "sos": "EMERGENCY SOS",
+    "sosSub": "Hold 2s for immediate help"
+  },
+  "nav": {
+    "home": "Home",
+    "report": "Report Issue",
+    "map": "Live Map",
+    "board": "Village Board",
+    "resources": "Resources",
+    "anonymous": "Anonymous Report",
+    "schemes": "Schemes",
+    "analytics": "Analytics",
+    "more": "More",
+    "login": "Login",
+    "logout": "Logout",
+    "switchRole": "Switch Role"
+  },
+  "roles": {
+    "RESIDENT": "Resident / Villager",
+    "SARPANCH": "Sarpanch / Admin",
+    "ORGANIZATION": "Department / NGO",
+    "PROVIDER": "Provider / Volunteer"
+  },
+  "categories": {
+    "WATER": "Drinking Water & Pumping",
+    "ELECTRICITY": "Electricity & Streetlights",
+    "ROADS": "Roads & Pathways",
+    "TRANSPORT": "Transport & Bus Service",
+    "HEALTH": "Health & Emergency Medical",
+    "AGRICULTURE": "Agriculture & Irrigation",
+    "EDUCATION": "School & Anganwadi",
+    "SANITATION": "Sanitation & Waste",
+    "WOMEN_SAFETY": "Women Safety & Harassment",
+    "OTHER": "Other Needs"
+  },
+  "priority": {
+    "CRITICAL": "Critical",
+    "HIGH": "High",
+    "MEDIUM": "Medium",
+    "LOW": "Low",
+    "whyCritical": "Why is this priority?",
+    "score": "Priority Score"
+  },
+  "status": {
+    "SUBMITTED": "Submitted",
+    "VERIFIED": "Verified",
+    "ASSIGNED": "Assigned",
+    "ACCEPTED": "Accepted",
+    "IN_PROGRESS": "In Progress",
+    "RESOLVED": "Resolved",
+    "CLOSED": "Closed",
+    "REJECTED": "Rejected",
+    "ESCALATED": "Escalated",
+    "REOPENED": "Reopened"
+  },
+  "report": {
+    "title": "Report a Problem",
+    "sub": "Speak or type in your language. Photo and location make it faster.",
+    "selectCategory": "Select Category",
+    "voiceSpeak": "Tap to Speak",
+    "listening": "Listening... Speak now",
+    "problemTitle": "Problem Title",
+    "description": "Explain the issue in detail",
+    "addPhoto": "Add Photo (Optional)",
+    "location": "Location",
+    "detectLocation": "Auto-detect My Location",
+    "urgency": "How urgent is this?",
+    "peopleAffected": "How many people are affected?",
+    "vulnerabilities": "Does this impact vulnerable villagers?",
+    "elderly": "Elderly",
+    "pregnant": "Pregnant Women",
+    "disabled": "Persons with Disabilities",
+    "children": "Children / Infants",
+    "proxyFiling": "Filing on behalf of another villager?",
+    "proxyName": "Villager's Name",
+    "proxyPhone": "Villager's Phone Number",
+    "submit": "Submit Grievance",
+    "sameProblem": "I have this problem too (+1 Supporter)",
+    "supported": "You supported this issue"
+  },
+  "feedback": {
+    "isFixed": "Is this issue fixed?",
+    "yesFixed": "Yes, it is fixed!",
+    "noReopen": "No, reopen & escalate",
+    "rateResolution": "Rate the work (1-5 stars)",
+    "feedbackPlaceholder": "Add any remarks for the Sarpanch...",
+    "confirm": "Submit Confirmation",
+    "beforeAfter": "Before & After Proof"
+  },
+  "sos": {
+    "title": "Women's Safety & Emergency SOS",
+    "instruction": "Press & hold the SOS button for 2 seconds. An alert with your exact coordinates will be sent to the Sarpanch, local safety volunteers, and nearby verified responders.",
+    "triggerBtn": "HOLD FOR 2 SECONDS",
+    "activeAlert": "ACTIVE EMERGENCY ALERT",
+    "quickDials": "Quick Emergency Helpline Dials",
+    "shareWhatsapp": "Share Location on WhatsApp",
+    "shareSms": "Share via SMS to Family",
+    "cancelAlert": "Resolve / Close Alert"
+  },
+  "resources": {
+    "title": "Village Resource Coordination",
+    "sub": "Find and share tractors, water tankers, skilled technicians, and community halls.",
+    "requestBtn": "Request a Resource",
+    "listBtn": "List a Resource",
+    "utilization": "Village Resource Utilization",
+    "canSolveInternally": "Can the village solve this internally?",
+    "serviceGaps": "Detected Service Shortages",
+    "matchedTop": "Top Smart Matches",
+    "matchScore": "Match Fit",
+    "accept": "Accept Request",
+    "decline": "Decline (Pass to Next)"
+  },
+  "board": {
+    "title": "Gram Panchayat Notice Board",
+    "createPost": "New Official Notice",
+    "emergencyAlert": "Emergency Village Alert",
+    "all": "All Notices",
+    "schemes": "Government Schemes",
+    "healthCamps": "Health Camps",
+    "schedules": "Bus & Service Schedules"
+  },
+  "anonymous": {
+    "title": "Anonymous Grievance Filing",
+    "sub": "No phone number, name, or device ID is recorded. Your identity is 100% confidential under DPDP Act protections.",
+    "trackingCode": "Your Tracking Code",
+    "saveCode": "Please save this code to check progress later.",
+    "checkStatus": "Track Anonymous Report"
+  },
+  "analytics": {
+    "title": "Village Service Health & Analytics",
+    "healthIndex": "Village Service Health Index",
+    "avgResolutionTime": "Average Resolution Time",
+    "activeCount": "Active Complaints",
+    "criticalCount": "Critical Alerts",
+    "resolvedCount": "Resolved This Month",
+    "exportReport": "Export Weekly Panchayat Report"
+  },
+  "chatbot": {
+    "title": "Gram Assistant - Village Knowledge Bot",
+    "placeholder": "Ask about schemes, health camps, rationing, certificates, or grievance status...",
+    "send": "Ask Assistant"
+  }
+}
