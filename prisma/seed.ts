@@ -6,6 +6,13 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Starting GramSetu realistic database seeding...');
 
+  // Seeding is initialization, not an implicit database reset.
+  const villageCount = await prisma.village.count();
+  if (villageCount > 0 && process.env.GRAMSETU_ALLOW_SEED_RESET !== 'true') {
+    console.log('Existing village data found; leaving all records unchanged.');
+    return;
+  }
+
   // Clean existing tables in reverse dependency order
   await prisma.notification.deleteMany();
   await prisma.sOSAlert.deleteMany();

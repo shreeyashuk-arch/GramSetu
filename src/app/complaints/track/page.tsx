@@ -34,6 +34,8 @@ function TrackComplaintsContent() {
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [onlyMy, setOnlyMy] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
+  const [actionError, setActionError] = useState('');
+  const [actionBusy, setActionBusy] = useState(false);
 
   // Resolution confirmation modal state
   const [confirmModalOpen, setConfirmModalOpen] = useState<boolean>(false);
@@ -56,12 +58,14 @@ function TrackComplaintsContent() {
         const data = await res.json();
         setComplaints(data.complaints || []);
 
-        if (initialId && !selectedComplaint) {
-          const match = (data.complaints || []).find((c: any) => c.id === initialId);
-          if (match) setSelectedComplaint(match);
-        }
+        setSelectedComplaint((previous: any) => {
+          const id = previous?.id || initialId;
+          return id ? (data.complaints || []).find((c: any) => c.id === id) || null : null;
+        });
+      } else {
+        setActionError('Could not load complaints. Please refresh and try again.');
       }
-    } catch {}
+    } catch { setActionError('Network error loading complaints.'); }
     setLoading(false);
   };
 
@@ -74,7 +78,29 @@ function TrackComplaintsContent() {
 
   useEffect(() => {
     fetchComplaints();
+    const events = new EventSource('/api/events');
+    events.addEventListener('complaint_created', fetchComplaints);
+    events.addEventListener('complaint_updated', fetchComplaints);
+    events.addEventListener('open', fetchComplaints);
+    return () => events.close();
   }, [filterCategory, filterStatus, onlyMy]);
+
+  const startWork = async () => {
+    if (!selectedComplaint || actionBusy) return;
+    setActionBusy(true);
+    setActionError('');
+    try {
+      const res = await fetch(`/api/complaints/${selectedComplaint.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'IN_PROGRESS' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not start work');
+      setSelectedComplaint(data.complaint);
+      await fetchComplaints();
+    } catch (error) { setActionError(error instanceof Error ? error.message : 'Could not start work'); }
+    finally { setActionBusy(false); }
+  };
 
   const supportComplaint = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -88,7 +114,9 @@ function TrackComplaintsContent() {
   };
 
   const handleResidentConfirmation = async (isFixed: boolean) => {
-    if (!selectedComplaint) return;
+    if (!selectedComplaint || actionBusy) return;
+    setActionBusy(true);
+    setActionError('');
     try {
       const res = await fetch(`/api/complaints/${selectedComplaint.id}`, {
         method: 'PATCH',
@@ -110,8 +138,9 @@ function TrackComplaintsContent() {
         }
         fetchComplaints();
         setSelectedComplaint(null);
-      }
-    } catch {}
+      } else setActionError((await res.json()).error || 'Could not confirm resolution');
+    } catch { setActionError('Network error; confirmation was not verified. Refresh before retrying.'); }
+    finally { setActionBusy(false); }
   };
 
   const handleProviderUploadProof = async () => {
@@ -119,7 +148,8 @@ function TrackComplaintsContent() {
       alert('Please enter proof photograph URL.');
       return;
     }
-
+    setActionBusy(true);
+    setActionError('');
     try {
       const res = await fetch(`/api/complaints/${selectedComplaint.id}`, {
         method: 'PATCH',
@@ -136,8 +166,9 @@ function TrackComplaintsContent() {
         speak('Resolution proof submitted. Awaiting resident confirmation.');
         fetchComplaints();
         setSelectedComplaint(null);
-      }
-    } catch {}
+      } else setActionError((await res.json()).error || 'Could not submit proof');
+    } catch { setActionError('Network error; proof submission was not verified.'); }
+    finally { setActionBusy(false); }
   };
 
   return (
@@ -169,7 +200,7 @@ function TrackComplaintsContent() {
 
       {/* Filter Tabs */}
       <div className="flex flex-wrap items-center gap-2 overflow-x-auto pb-1 text-xs font-bold">
-        {['ALL', 'SUBMITTED', 'ASSIGNED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'ESCALATED'].map(
+        {['ALL', 'SUBMITTED', 'VERIFIED', 'ASSIGNED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REOPENED', 'ESCALATED'].map(
           (st) => (
             <button
               key={st}
@@ -185,6 +216,8 @@ function TrackComplaintsContent() {
           )
         )}
       </div>
+
+      {actionError && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{actionError}</p>}
 
       {/* Main Grid: List on Left, Detail Modal on Right / Expand */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -365,7 +398,7 @@ function TrackComplaintsContent() {
               )}
 
               {/* Action 1: Resident Confirmation if RESOLVED */}
-              {selectedComplaint.status === 'RESOLVED' && (
+              {selectedComplaint.permissions?.canConfirm && (
                 <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded-2xl space-y-2 text-center">
                   <h4 className="text-xs font-black text-emerald-900 dark:text-emerald-100">
                     Resident Verification Required: {t('feedback.isFixed')}
@@ -373,12 +406,14 @@ function TrackComplaintsContent() {
                   <div className="flex items-center justify-center gap-2">
                     <button
                       onClick={() => setConfirmModalOpen(true)}
+                      disabled={actionBusy}
                       className="flex-1 py-2 px-3 rounded-xl bg-green-600 hover:bg-green-700 text-white text-xs font-bold shadow"
                     >
                       {t('feedback.yesFixed')}
                     </button>
                     <button
                       onClick={() => handleResidentConfirmation(false)}
+                      disabled={actionBusy}
                       className="flex-1 py-2 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow"
                     >
                       {t('feedback.noReopen')}
@@ -388,10 +423,18 @@ function TrackComplaintsContent() {
               )}
 
               {/* Action 2: Provider / Org upload proof photo */}
-              {(currentUser?.role === 'PROVIDER' || currentUser?.role === 'ORGANIZATION') &&
+              {selectedComplaint.permissions?.canWork &&
+                ['VERIFIED', 'ASSIGNED', 'ACCEPTED', 'REOPENED', 'ESCALATED'].includes(selectedComplaint.status) && (
+                  <button onClick={startWork} disabled={actionBusy}
+                    className="w-full rounded-2xl bg-blue-700 px-4 py-3 text-xs font-extrabold text-white disabled:opacity-50">
+                    {actionBusy ? 'Updating…' : 'Accept & Start Work'}
+                  </button>
+                )}
+              {selectedComplaint.permissions?.canWork &&
                 selectedComplaint.status === 'IN_PROGRESS' && (
                   <button
                     onClick={() => setProofModalOpen(true)}
+                    disabled={actionBusy}
                     className="w-full py-3 px-4 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-extrabold flex items-center justify-center gap-2 shadow"
                   >
                     <Camera className="w-4 h-4" />
@@ -447,6 +490,7 @@ function TrackComplaintsContent() {
               </button>
               <button
                 onClick={() => handleResidentConfirmation(true)}
+                disabled={actionBusy}
                 className="flex-1 py-2.5 rounded-xl bg-green-700 text-white text-xs font-bold shadow"
               >
                 {t('feedback.confirm')}
@@ -484,6 +528,7 @@ function TrackComplaintsContent() {
               </button>
               <button
                 onClick={handleProviderUploadProof}
+                disabled={actionBusy}
                 className="flex-1 py-2.5 rounded-xl bg-green-700 text-white text-xs font-bold shadow"
               >
                 Submit Proof

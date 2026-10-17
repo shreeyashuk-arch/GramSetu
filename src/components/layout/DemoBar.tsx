@@ -34,7 +34,9 @@ export default function DemoBar() {
 
       if (res.ok) {
         await fetchUser();
-        router.refresh();
+        // Client pages cache role-specific state; a refresh of server components
+        // alone does not reload their identity, permissions, or queues.
+        window.location.reload();
       }
     } catch (e) {
       console.error('Role switch failed:', e);

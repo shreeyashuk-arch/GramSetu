@@ -1,10 +1,8 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
-import { NextRequest } from 'next/server';
-
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'gramsetu-super-secret-jwt-key-2026-secure'
-);
+import type { NextRequest } from 'next/server';
+import { canReadPrivateComplaint, canWorkComplaint } from './complaint-access';
+import type { ComplaintAccessRecord } from './complaint-access';
 
 export const COOKIE_NAME = 'gramsetu_token';
 
@@ -21,23 +19,94 @@ export interface TokenPayload {
   organizationType?: string;
   providerCategory?: string;
   language?: string;
+  isVerified?: boolean;
+}
+
+function jwtSecret(): Uint8Array {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.trim().length < 32) {
+    throw new Error('JWT_SECRET must contain at least 32 non-padding characters');
+  }
+  return new TextEncoder().encode(secret);
+}
+
+function isUserRole(role: unknown): role is UserRole {
+  return role === 'RESIDENT' || role === 'SARPANCH' ||
+    role === 'ORGANIZATION' || role === 'PROVIDER';
+}
+
+function isTokenPayload(payload: unknown): payload is TokenPayload {
+  if (!payload || typeof payload !== 'object') return false;
+  const value = payload as Record<string, unknown>;
+  return typeof value.userId === 'string' && value.userId.trim().length > 0 &&
+    typeof value.villageId === 'string' && value.villageId.trim().length > 0 &&
+    typeof value.phone === 'string' && typeof value.name === 'string' &&
+    isUserRole(value.role) &&
+    ['villageName', 'zoneId', 'organizationType', 'providerCategory', 'language']
+      .every((key) => value[key] === undefined || typeof value[key] === 'string') &&
+    (value.isVerified === undefined || typeof value.isVerified === 'boolean');
 }
 
 export async function signToken(payload: TokenPayload): Promise<string> {
+  const secret = jwtSecret();
+  if (!isTokenPayload(payload)) throw new Error('Invalid session payload');
   return await new SignJWT({ ...payload })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('30d')
-    .sign(JWT_SECRET);
+    .sign(secret);
 }
 
 export async function verifyToken(token: string): Promise<TokenPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    return payload as unknown as TokenPayload;
+    const { payload } = await jwtVerify(token, jwtSecret(), {
+      algorithms: ['HS256'],
+      requiredClaims: ['iat', 'exp'],
+    });
+    return isTokenPayload(payload) ? payload : null;
   } catch {
+    // Invalid tokens and missing/weak configuration both fail closed.
     return null;
   }
+}
+
+async function currentAccount(token: string): Promise<TokenPayload | null> {
+  const claims = await verifyToken(token);
+  if (!claims) return null;
+
+  // Keep pure policy/JWT consumers independent of Prisma initialization.
+  const { prisma } = await import('./prisma');
+  const user = await prisma.user.findUnique({
+    where: { id: claims.userId },
+    select: {
+      id: true,
+      phone: true,
+      name: true,
+      role: true,
+      villageId: true,
+      village: { select: { name: true } },
+      zoneId: true,
+      organizationType: true,
+      providerCategory: true,
+      language: true,
+      isVerified: true,
+    },
+  });
+  if (!user || !isUserRole(user.role) || !user.villageId.trim()) return null;
+
+  return {
+    userId: user.id,
+    phone: user.phone,
+    name: user.name,
+    role: user.role,
+    villageId: user.villageId,
+    villageName: user.village.name,
+    zoneId: user.zoneId || undefined,
+    organizationType: user.organizationType || undefined,
+    providerCategory: user.providerCategory || undefined,
+    language: user.language,
+    isVerified: user.isVerified,
+  };
 }
 
 export async function getSessionUser(): Promise<TokenPayload | null> {
@@ -45,16 +114,20 @@ export async function getSessionUser(): Promise<TokenPayload | null> {
     const cookieStore = cookies();
     const token = cookieStore.get(COOKIE_NAME)?.value;
     if (!token) return null;
-    return await verifyToken(token);
+    return await currentAccount(token);
   } catch {
     return null;
   }
 }
 
 export async function getSessionUserFromRequest(req: NextRequest): Promise<TokenPayload | null> {
-  const token = req.cookies.get(COOKIE_NAME)?.value;
-  if (!token) return null;
-  return await verifyToken(token);
+  try {
+    const token = req.cookies.get(COOKIE_NAME)?.value;
+    if (!token) return null;
+    return await currentAccount(token);
+  } catch {
+    return null;
+  }
 }
 
 // RBAC Permissions check helper
@@ -63,22 +136,17 @@ export function canAccessRole(userRole: UserRole, allowedRoles: UserRole[]): boo
   return allowedRoles.includes(userRole);
 }
 
+/** @deprecated Use action-specific predicates from complaint-access for routes. */
 export function canManageComplaint(
   user: TokenPayload,
-  complaint: {
-    residentId?: string | null;
-    assignedOrgType?: string | null;
-    assignedProviderId?: string | null;
-    isAnonymous?: boolean;
-    category?: string;
-  }
+  complaint: Omit<ComplaintAccessRecord, 'villageId'> & { villageId?: string; category?: string }
 ): boolean {
-  if (user.role === 'SARPANCH') return true;
-  if (user.role === 'RESIDENT' && complaint.residentId === user.userId) return true;
-  if (user.role === 'ORGANIZATION') {
-    // Org can manage complaints mapped to its organization type or category
-    return true;
+  if (complaint.villageId === undefined) {
+    // Legacy engine fixtures omit villageId. Never extend this exception to staff.
+    return user.role === 'RESIDENT' && !!user.userId.trim() && !!user.villageId.trim() &&
+      complaint.isAnonymous !== true && complaint.residentId === user.userId;
   }
-  if (user.role === 'PROVIDER' && complaint.assignedProviderId === user.userId) return true;
-  return false;
+  const scoped = { ...complaint, villageId: complaint.villageId };
+  return canWorkComplaint(user, scoped) ||
+    (user.role === 'RESIDENT' && canReadPrivateComplaint(user, scoped));
 }

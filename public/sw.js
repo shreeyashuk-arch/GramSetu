@@ -1,8 +1,7 @@
-const CACHE_NAME = 'gramsetu-cache-v1';
+const CACHE_NAME = 'gramsetu-cache-v2';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
-  '/offline',
 ];
 
 self.addEventListener('install', (event) => {
@@ -31,30 +30,36 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
 
-  // Skip API routes, chrome-extension, and external maps
-  if (url.pathname.startsWith('/api') || url.protocol === 'chrome-extension:') {
+  // Skip APIs, browser extensions, cross-origin resources, and Next data/RSC requests.
+  if (url.origin !== self.location.origin || url.pathname.startsWith('/api') ||
+      url.pathname.startsWith('/_next/data') || url.protocol === 'chrome-extension:') {
     return;
   }
 
+  const isNavigation = event.request.mode === 'navigate';
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-
-      return fetch(event.request)
-        .then((response) => {
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
-          }
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
+    (async () => {
+      const cache = await caches.open(CACHE_NAME);
+      if (isNavigation) {
+        try {
+          const response = await fetch(event.request);
+          if (response.ok) await cache.put(event.request, response.clone());
           return response;
-        })
-        .catch(() => {
-          // Fallback if offline
-          return caches.match('/');
-        });
-    })
+        } catch {
+          return (await cache.match(event.request)) || (await cache.match('/')) ||
+            new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } });
+        }
+      }
+
+      const cached = await cache.match(event.request);
+      if (cached) return cached;
+      try {
+        const response = await fetch(event.request);
+        if (response.ok && response.type === 'basic') await cache.put(event.request, response.clone());
+        return response;
+      } catch {
+        return new Response('', { status: 503, statusText: 'Offline' });
+      }
+    })()
   );
 });

@@ -24,7 +24,7 @@ import {
   User,
 } from 'lucide-react';
 import { useTranslation, LANGUAGES, SupportedLanguage } from '@/lib/i18n';
-import { syncOfflineQueue, getQueuedItems } from '@/lib/offline-queue';
+import { syncOfflineQueue, getQueuedItems, QUEUE_CHANGED_EVENT } from '@/lib/offline-queue';
 
 export default function Header() {
   const pathname = usePathname();
@@ -33,6 +33,7 @@ export default function Header() {
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [offlineCount, setOfflineCount] = useState<number>(0);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [syncFailures, setSyncFailures] = useState<number>(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [langMenuOpen, setLangMenuOpen] = useState<boolean>(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -45,9 +46,11 @@ export default function Header() {
       handleManualSync();
     };
     const handleOffline = () => setIsOnline(false);
+    const handleQueueChanged = () => { checkQueue(); };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    window.addEventListener(QUEUE_CHANGED_EVENT, handleQueueChanged);
 
     // Check queued offline items count
     checkQueue();
@@ -55,23 +58,30 @@ export default function Header() {
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener(QUEUE_CHANGED_EVENT, handleQueueChanged);
     };
   }, []);
 
   const checkQueue = async () => {
-    const items = await getQueuedItems();
-    setOfflineCount(items.length);
+    try {
+      const items = await getQueuedItems();
+      setOfflineCount(items.length);
+    } catch {
+      setOfflineCount(0);
+    }
   };
 
   const handleManualSync = async () => {
     setIsSyncing(true);
     try {
-      const { synced } = await syncOfflineQueue();
+      const result = await syncOfflineQueue();
+      setSyncFailures(result.failed);
+      const { synced } = result;
       if (synced > 0) {
         speak(`${synced} offline items synced successfully.`);
       }
       await checkQueue();
-    } catch {}
+    } catch { setSyncFailures(1); }
     setIsSyncing(false);
   };
 
@@ -80,7 +90,14 @@ export default function Header() {
     fetch('/api/auth/me')
       .then((res) => res.json())
       .then((data) => {
-        if (data.user) setCurrentUser(data.user);
+        if (data.user) {
+          setCurrentUser(data.user);
+          try {
+            localStorage.setItem('gramsetu_offline_owner', JSON.stringify({ userId: data.user.id, villageId: data.user.villageId }));
+          } catch {}
+        } else {
+          try { localStorage.removeItem('gramsetu_offline_owner'); } catch {}
+        }
       })
       .catch(() => {});
   }, [pathname]);
@@ -98,7 +115,7 @@ export default function Header() {
     } else if (pathname === '/resources') {
       screenSummary += `Village resources. Match and request tractors, tankers, and technicians.`;
     } else if (pathname === '/anonymous') {
-      screenSummary += `Anonymous complaint filing. Your identity is 100% protected under DPDP Act.`;
+      screenSummary += `Confidential complaint filing. No account identity is attached; avoid personal details in the report text.`;
     } else if (pathname === '/schemes') {
       screenSummary += `Scheme navigator. Guided flow to find government benefits and required documents.`;
     } else if (pathname === '/analytics') {
@@ -138,7 +155,7 @@ export default function Header() {
       {/* Sync Banner if items are queued and back online */}
       {isOnline && offlineCount > 0 && (
         <div className="bg-emerald-600 text-white px-3 py-1 text-center text-xs font-semibold flex items-center justify-center gap-2">
-          <span>{offlineCount} offline reports ready to sync.</span>
+            <span>{offlineCount} offline items ready to sync.{syncFailures > 0 ? ` ${syncFailures} still need retry.` : ''}</span>
           <button
             onClick={handleManualSync}
             disabled={isSyncing}

@@ -12,7 +12,7 @@ export default function PrivacyPage() {
   const [deletedSuccess, setDeletedSuccess] = useState<boolean>(false);
 
   const handleDeleteData = async () => {
-    if (!confirm('Are you sure you want to permanently delete your account and erase personal data under the DPDP Act?')) {
+    if (!confirm('Are you sure you want to delete this account and request erasure of its personal data?')) {
       return;
     }
 
@@ -44,10 +44,10 @@ export default function PrivacyPage() {
           <ShieldCheck className="w-8 h-8" />
         </div>
         <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white">
-          Privacy Policy & DPDP Act Compliance
+           Privacy & Data Controls (Prototype)
         </h1>
         <p className="text-sm text-slate-500 font-medium">
-          Digital Personal Data Protection (DPDP) Act, 2023 - Resident Data Protection Notice
+           DPDP-aligned product controls are shown for evaluation; this prototype is not a legal compliance certification.
         </p>
       </div>
 
@@ -85,7 +85,7 @@ export default function PrivacyPage() {
             Anonymous Grievance Protections
           </h3>
           <p className="text-xs text-slate-500 leading-relaxed">
-            Sensitive corruption or harassment complaints do not log phone numbers, IP addresses, or device IDs, secured with salted one-way rate hashes.
+             Sensitive complaints do not attach an account identity; transient rate limiting uses salted one-way hashes. Network infrastructure logs are outside this app's control.
           </p>
         </div>
       </div>
@@ -98,10 +98,10 @@ export default function PrivacyPage() {
           </div>
           <div className="space-y-1">
             <h3 className="text-lg font-black text-red-950 dark:text-red-100">
-              Right to Erasure (DPDP Act, 2023 - Section 12)
+               Delete My Data (prototype control)
             </h3>
             <p className="text-xs text-red-800 dark:text-red-300">
-              You have the right to request the deletion or anonymization of your personal data held by GramSetu. This action will disassociate your phone number, name, and profile from all historical records.
+               Request deletion or anonymization of personal data held by this local prototype. Production deployments must add a reviewed retention, grievance, and legal-compliance process.
             </p>
           </div>
         </div>
@@ -109,7 +109,7 @@ export default function PrivacyPage() {
         {deletedSuccess ? (
           <div className="p-4 bg-green-100 text-green-900 font-bold rounded-2xl text-xs flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-green-700" />
-            <span>Personal data erased successfully. Redirecting...</span>
+             <span>Deletion request completed for this prototype account. Redirecting...</span>
           </div>
         ) : (
           <button
@@ -123,7 +123,7 @@ export default function PrivacyPage() {
               </>
             ) : (
               <>
-                <Trash2 className="w-4 h-4" /> Permanently Delete My Data
+                 <Trash2 className="w-4 h-4" /> Delete My Data
               </>
             )}
           </button>

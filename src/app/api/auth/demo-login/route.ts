@@ -4,19 +4,19 @@ import { signToken, COOKIE_NAME, UserRole } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
   try {
+    if (process.env.NEXT_PUBLIC_DEMO_MODE !== 'true') {
+      return NextResponse.json({ error: 'Demo login is disabled' }, { status: 403 });
+    }
     const { role } = await req.json();
 
-    let targetPhone = '9876543250'; // Default Resident
-
-    if (role === 'SARPANCH') {
-      targetPhone = '9876543210';
-    } else if (role === 'ORGANIZATION') {
-      targetPhone = '9876543220'; // Jal Shakti
-    } else if (role === 'PROVIDER') {
-      targetPhone = '9876543230'; // Ramesh Shinde Tractor
-    } else {
-      targetPhone = '9876543250'; // Resident
-    }
+    const demoPhones: Record<string, string> = {
+      RESIDENT: '9876543250',
+      SARPANCH: '9876543210',
+      ORGANIZATION: '9876543220',
+      PROVIDER: '9876543230',
+    };
+    const targetPhone = demoPhones[role];
+    if (!targetPhone) return NextResponse.json({ error: 'Invalid demo role' }, { status: 400 });
 
     const user = await prisma.user.findUnique({
       where: { phone: targetPhone },

@@ -5,6 +5,8 @@ import { calculatePriority } from '@/lib/priority';
 import { detectDuplicate } from '@/lib/duplicate-detector';
 import { evaluateSpamAndFake, checkRateLimit, generateAnonymousSaltedHash } from '@/lib/spam-filter';
 import { sseManager } from '@/lib/sse';
+import { randomBytes } from 'node:crypto';
+import { serializeComplaint } from '@/lib/complaint-access';
 
 const ORG_CATEGORY_MAP: Record<string, string> = {
   WATER: 'JAL_SHAKTI',
@@ -34,12 +36,11 @@ export async function GET(req: NextRequest) {
     const moderation = searchParams.get('moderation') === 'true';
     const resolvedOnly = searchParams.get('resolved') === 'true';
 
-    const where: any = {};
-
-    // By default get Shivapur village or user's village
-    if (session?.villageId) {
-      where.villageId = session.villageId;
-    }
+    const defaultVillage = session ? null : await prisma.village.findFirst({ orderBy: { createdAt: 'asc' } });
+    const villageId = session?.villageId || defaultVillage?.id;
+    if (!villageId) return NextResponse.json({ error: 'Village setup required' }, { status: 503 });
+    const where: any = { villageId };
+    const publicFilter = { isAnonymous: false, moderationStatus: 'APPROVED', isSpam: false };
 
     if (category) where.category = category;
     if (status) where.status = status;
@@ -47,49 +48,24 @@ export async function GET(req: NextRequest) {
     if (zoneId) where.zoneId = zoneId;
 
     if (resolvedOnly) {
-      where.status = 'RESOLVED';
+      where.status = 'CLOSED';
+      where.residentConfirmed = true;
     }
 
-    // Role-based Segregation
-    if (session) {
-      if (myComplaints && session.role === 'RESIDENT') {
-        where.residentId = session.userId;
-      } else if (session.role === 'ORGANIZATION') {
-        // Organization sees complaints mapped to its organizationType
-        if (session.organizationType) {
-          where.assignedOrgType = session.organizationType;
-        }
-      } else if (session.role === 'PROVIDER') {
-        // Providers see assigned or unassigned in their category/zone
-        where.OR = [
-          { assignedProviderId: session.userId },
-          { status: 'VERIFIED' },
-        ];
-      } else if (session.role === 'SARPANCH') {
-        // Sarpanch can see everything
-        if (moderation) {
-          where.moderationStatus = 'FLAGGED';
-        }
-      }
-    } else {
-      // Unauthenticated public view: approved non-spam items only
-      where.moderationStatus = 'APPROVED';
-      where.isSpam = false;
+    if (moderation && session?.role !== 'SARPANCH') {
+      return NextResponse.json({ error: 'Sarpanch access required' }, { status: 403 });
     }
-
-    // Check SLA Escalation automatically on read
-    const now = new Date();
-    await prisma.complaint.updateMany({
-      where: {
-        slaExpiresAt: { lt: now },
-        status: { in: ['SUBMITTED', 'VERIFIED', 'ASSIGNED'] },
-        escalationLevel: 0,
-      },
-      data: {
-        status: 'ESCALATED',
-        escalationLevel: 1,
-      },
-    });
+    if (session?.role === 'SARPANCH') {
+      if (moderation) where.moderationStatus = 'FLAGGED';
+    } else if (session?.role === 'ORGANIZATION') {
+      if (!session.organizationType) return NextResponse.json({ error: 'Department not configured' }, { status: 403 });
+      where.assignedOrgType = session.organizationType;
+    } else if (session?.role === 'PROVIDER') {
+      where.assignedProviderId = session.userId;
+    } else if (session?.role === 'RESIDENT') {
+      if (myComplaints) where.residentId = session.userId;
+      else where.OR = [{ residentId: session.userId }, publicFilter];
+    } else Object.assign(where, publicFilter);
 
     const complaints = await prisma.complaint.findMany({
       where,
@@ -112,24 +88,7 @@ export async function GET(req: NextRequest) {
       take: 100,
     });
 
-    // PII Masking for public or resident peers: mask names & use coarse coordinates unless Sarpanch or Assigned Org
-    const sanitized = complaints.map((c) => {
-      const isPrivileged =
-        session?.role === 'SARPANCH' ||
-        (session?.role === 'ORGANIZATION' && session.organizationType === c.assignedOrgType) ||
-        (session?.role === 'RESIDENT' && session.userId === c.residentId);
-
-      return {
-        ...c,
-        lat: isPrivileged ? c.lat : c.coarseLat,
-        lng: isPrivileged ? c.lng : c.coarseLng,
-        resident: isPrivileged
-          ? c.resident
-          : c.resident
-          ? { id: c.resident.id, name: `${c.resident.name[0]}*** (Villager)` }
-          : null,
-      };
-    });
+    const sanitized = complaints.map(c => serializeComplaint(session, c)).filter(Boolean);
 
     return NextResponse.json({ complaints: sanitized });
   } catch (error: any) {
@@ -141,7 +100,10 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getSessionUserFromRequest(req);
-    const body = await req.json();
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json({ error: 'Invalid complaint payload' }, { status: 400 });
+    }
 
     const {
       category,
@@ -162,8 +124,34 @@ export async function POST(req: NextRequest) {
       zoneId,
     } = body;
 
-    if (!category || !title || !description || lat === undefined || lng === undefined) {
-      return NextResponse.json({ error: 'Missing required fields (category, title, description, location)' }, { status: 400 });
+    if (typeof isAnonymous !== 'boolean') {
+      return NextResponse.json({ error: 'Invalid isAnonymous field' }, { status: 400 });
+    }
+    if (!category || !Object.hasOwn(ORG_CATEGORY_MAP, category)) {
+      return NextResponse.json({ error: 'Please select a valid category' }, { status: 400 });
+    }
+    if (typeof title !== 'string' || title.trim().length < 5 || title.length > 160) {
+      return NextResponse.json({ error: 'Problem title must be between 5 and 160 characters' }, { status: 400 });
+    }
+    if (typeof description !== 'string' || description.trim().length < 10 || description.length > 4000) {
+      return NextResponse.json({ error: 'Problem description must be between 10 and 4000 characters' }, { status: 400 });
+    }
+    if (typeof lat !== 'number' || !Number.isFinite(lat) || Math.abs(lat) > 90 ||
+        typeof lng !== 'number' || !Number.isFinite(lng) || Math.abs(lng) > 180) {
+      return NextResponse.json({ error: 'Valid location coordinates (lat, lng) are required' }, { status: 400 });
+    }
+    if (![urgency, peopleAffected, timeSensitivity].every(v => Number.isFinite(Number(v)) && Number(v) >= 1 && Number(v) <= 5) ||
+        !Array.isArray(vulnerabilities) || vulnerabilities.some(v => !['elderly', 'pregnant', 'disabled', 'children'].includes(v))) {
+      return NextResponse.json({ error: 'Invalid urgency, peopleAffected, or vulnerabilities values' }, { status: 400 });
+    }
+    if (!isAnonymous && !session) {
+      return NextResponse.json({ error: 'Sign in to report, or use confidential anonymous reporting' }, { status: 401 });
+    }
+    const defaultVillage = session ? null : await prisma.village.findFirst({ orderBy: { createdAt: 'asc' } });
+    const villageId = session?.villageId || defaultVillage?.id;
+    if (!villageId) return NextResponse.json({ error: 'Village setup required' }, { status: 503 });
+    if (zoneId && !(await prisma.zone.findFirst({ where: { id: zoneId, villageId } }))) {
+      return NextResponse.json({ error: 'Zone does not belong to this village' }, { status: 400 });
     }
 
     // Rate Limiting & Abuse Prevention
@@ -177,8 +165,12 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Duplicate Detection Check
-    const activeComplaintsInCat = await prisma.complaint.findMany({
+    const activeComplaintsInCat = isAnonymous ? [] : await prisma.complaint.findMany({
       where: {
+        villageId,
+        isAnonymous: false,
+        isSpam: false,
+        moderationStatus: 'APPROVED',
         category,
         status: { notIn: ['RESOLVED', 'CLOSED', 'REJECTED'] },
       },
@@ -210,11 +202,6 @@ export async function POST(req: NextRequest) {
     let parentComplaintId: string | null = null;
     if (duplicateCheck.isDuplicate && duplicateCheck.parentComplaint) {
       parentComplaintId = duplicateCheck.parentComplaint.id;
-      // Increment supporter count on parent
-      await prisma.complaint.update({
-        where: { id: parentComplaintId },
-        data: { supporterCount: { increment: 1 } },
-      });
     }
 
     // 2. Spam & Fake Check
@@ -240,13 +227,12 @@ export async function POST(req: NextRequest) {
     const coarseLat = Math.round(lat * 500) / 500;
     const coarseLng = Math.round(lng * 500) / 500;
 
-    // Unique Code generator
-    const count = await prisma.complaint.count();
-    const code = `CMP-2026-${String(count + 1).padStart(3, '0')}`;
+    // Random identifiers avoid count-based collisions under concurrent submission.
+    const code = `CMP-${new Date().getFullYear()}-${randomBytes(6).toString('hex').toUpperCase()}`;
 
     // Anonymous tracking code if anonymous
     const anonymousTrackingCode = isAnonymous
-      ? `GS-ANON-${Math.floor(1000 + Math.random() * 9000)}-${Math.random().toString(36).substring(2, 4).toUpperCase()}`
+      ? `GS-ANON-${randomBytes(16).toString('hex').toUpperCase()}`
       : null;
 
     // Auto-routing to responsible Org
@@ -256,10 +242,18 @@ export async function POST(req: NextRequest) {
     const slaHours = priority.band === 'CRITICAL' ? 24 : priority.band === 'HIGH' ? 48 : 72;
     const slaExpiresAt = new Date(Date.now() + slaHours * 60 * 60 * 1000);
 
-    const defaultVillage = await prisma.village.findFirst();
-    const villageId = session?.villageId || defaultVillage?.id || '';
-
-    const complaint = await prisma.complaint.create({
+    const complaint = await prisma.$transaction(async tx => {
+    if (parentComplaintId && session && !spamCheck.requiresModeration) {
+      const supported = await tx.complaintSupporter.findUnique({
+        where: { complaintId_userId: { complaintId: parentComplaintId, userId: session.userId } },
+      });
+      if (!supported) {
+        await tx.complaintSupporter.create({ data: { complaintId: parentComplaintId, userId: session.userId } });
+        await tx.complaint.update({ where: { id: parentComplaintId }, data: { supporterCount: { increment: 1 } } });
+      }
+      return tx.complaint.findUniqueOrThrow({ where: { id: parentComplaintId }, include: { zone: true, resident: true } });
+    }
+    const created = await tx.complaint.create({
       data: {
         code,
         villageId,
@@ -288,8 +282,8 @@ export async function POST(req: NextRequest) {
         isSpam: spamCheck.isSpam,
         spamReason: spamCheck.moderationReason || null,
         moderationStatus: spamCheck.requiresModeration ? 'FLAGGED' : 'APPROVED',
-        proxyFiledBy: proxyFiledBy || null,
-        proxyPhone: proxyPhone || null,
+        proxyFiledBy: isAnonymous ? null : proxyFiledBy || null,
+        proxyPhone: isAnonymous ? null : proxyPhone || null,
       },
       include: {
         zone: true,
@@ -298,12 +292,12 @@ export async function POST(req: NextRequest) {
     });
 
     // Audit Log
-    await prisma.auditLog.create({
+    await tx.auditLog.create({
       data: {
-        complaintId: complaint.id,
-        userId: session?.userId || null,
-        role: session?.role || (isAnonymous ? 'ANONYMOUS' : 'RESIDENT'),
-        action: proxyFiledBy ? 'PROXY_FILED' : 'CREATED',
+        complaintId: created.id,
+        userId: isAnonymous ? null : session?.userId || null,
+        role: isAnonymous ? 'ANONYMOUS' : session!.role,
+        action: !isAnonymous && proxyFiledBy ? 'PROXY_FILED' : 'CREATED',
         details: JSON.stringify({
           priorityScore: priority.score,
           priorityBand: priority.band,
@@ -315,44 +309,41 @@ export async function POST(req: NextRequest) {
     });
 
     // Create Notification
-    await prisma.notification.create({
+    await tx.notification.create({
       data: {
         villageId,
-        targetRole: assignedOrgType === 'PANCHAYAT' ? 'SARPANCH' : 'ORGANIZATION',
+        targetRole: isAnonymous || assignedOrgType === 'PANCHAYAT' ? 'SARPANCH' : 'ORGANIZATION',
         type: priority.band === 'CRITICAL' ? 'EMERGENCY' : 'ASSIGNMENT',
-        title: `New Grievance #${code}: ${title.substring(0, 40)}`,
+        title: isAnonymous ? 'New confidential report: authorized review required' : `New Grievance #${code}`,
         message: `Priority: ${priority.band} (${priority.score}/100). Auto-routed to ${assignedOrgType}.`,
         link: `/complaints/track`,
       },
     });
+    return created;
+    });
 
     // SSE Broadcast
     sseManager.broadcast('complaint_created', {
-      id: complaint.id,
-      code: complaint.code,
-      title: complaint.title,
-      category: complaint.category,
-      priorityBand: complaint.priorityBand,
-      assignedOrgType: complaint.assignedOrgType,
+      villageId,
       time: Date.now(),
     });
 
     return NextResponse.json({
       success: true,
-      complaint,
-      duplicateInfo: duplicateCheck.isDuplicate
+      complaint: isAnonymous ? { code, status: complaint.status, priorityBand: complaint.priorityBand } : serializeComplaint(session, complaint),
+      duplicateInfo: parentComplaintId && !spamCheck.requiresModeration
         ? {
             parentCode: duplicateCheck.parentComplaint?.code,
             explanation: duplicateCheck.explanation,
           }
         : null,
       trackingCode: anonymousTrackingCode,
-      message: duplicateCheck.isDuplicate
+      message: parentComplaintId && !spamCheck.requiresModeration
         ? 'Matched existing report. Added as supporter!'
         : 'Complaint submitted and auto-routed successfully.',
     });
   } catch (error: any) {
-    console.error('Error creating complaint:', error);
-    return NextResponse.json({ error: error.message || 'Failed to submit complaint' }, { status: 500 });
+    console.error('Error creating complaint:', { name: error?.name, code: error?.code });
+    return NextResponse.json({ error: 'Failed to submit complaint' }, { status: 500 });
   }
 }

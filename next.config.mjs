@@ -3,6 +3,8 @@ import path from 'path';
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Verify production builds without overwriting an active dev server's output.
+  distDir: process.env.GRAMSETU_DIST_DIR || '.next',
   images: {
     remotePatterns: [
       {

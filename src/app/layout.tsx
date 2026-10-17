@@ -8,6 +8,7 @@ import BottomNav from '@/components/layout/BottomNav';
 import SOSButton from '@/components/sos/SOSButton';
 import FloatingChatbot from '@/components/chatbot/FloatingChatbot';
 import LanguageModal from '@/components/layout/LanguageModal';
+import ServiceWorkerRegistration from '@/components/pwa/ServiceWorkerRegistration';
 
 export const metadata: Metadata = {
   title: 'GramSetu | Village Needs & Resources Platform',
@@ -63,6 +64,7 @@ export default function RootLayout({
 
           {/* Full Screen Language Selector Modal on First Visit */}
           <LanguageModal />
+          <ServiceWorkerRegistration />
         </LanguageProvider>
       </body>
     </html>

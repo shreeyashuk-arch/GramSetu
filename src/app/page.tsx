@@ -19,6 +19,8 @@ import {
   Activity,
   Layers,
   Sparkles,
+  Handshake,
+  Info,
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 
@@ -82,6 +84,15 @@ export default function HomePage() {
               <span>Track Grievances</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
+
+            <Link
+              href="/how-it-works"
+              className="flex items-center gap-2 px-4 py-4 rounded-2xl bg-white/10 hover:bg-white/20 text-green-200 font-bold text-sm backdrop-blur-sm transition-colors border border-white/20"
+              id="how-it-works-link"
+            >
+              <Info className="w-4 h-4" />
+              <span>How it Works</span>
+            </Link>
           </div>
         </div>
 
@@ -112,10 +123,10 @@ export default function HomePage() {
       )}
 
       {/* 3. Village Service Health & Live Metrics */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider">{t('analytics.healthIndex')}</span>
+            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">{t('analytics.healthIndex')}</span>
             <Activity className="w-4 h-4 text-emerald-600" />
           </div>
           <div className="flex items-baseline gap-2">
@@ -127,20 +138,9 @@ export default function HomePage() {
           <p className="text-[11px] text-slate-500 mt-1">Village infrastructure uptime score</p>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider">{t('analytics.activeCount')}</span>
-            <AlertCircle className="w-4 h-4 text-amber-600" />
-          </div>
-          <span className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white">
-            {stats?.summary?.activeComplaints || 42}
-          </span>
-          <p className="text-[11px] text-slate-500 mt-1">Under investigation or in repair</p>
-        </div>
-
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider">{t('analytics.resolvedCount')}</span>
+            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">{t('analytics.resolvedCount')}</span>
             <CheckCircle2 className="w-4 h-4 text-green-600" />
           </div>
           <span className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white">
@@ -149,16 +149,27 @@ export default function HomePage() {
           <p className="text-[11px] text-slate-500 mt-1">Confirmed with resident ratings</p>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider">{t('analytics.avgResolutionTime')}</span>
+            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Requests Matched</span>
+            <Handshake className="w-4 h-4 text-violet-600" />
+          </div>
+          <span className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white">
+            {stats?.summary?.matchedRequests ?? 7}
+          </span>
+          <p className="text-[11px] text-slate-500 mt-1">Resources matched to villagers</p>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
+            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">{t('analytics.avgResolutionTime')}</span>
             <TrendingUp className="w-4 h-4 text-blue-600" />
           </div>
           <div className="flex items-baseline gap-1">
             <span className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white">
               {stats?.summary?.avgResolutionTimeHours || 28}
             </span>
-            <span className="text-xs font-bold text-slate-500">hours</span>
+            <span className="text-xs font-bold text-slate-500">hrs avg</span>
           </div>
           <p className="text-[11px] text-slate-500 mt-1">From submission to proof</p>
         </div>

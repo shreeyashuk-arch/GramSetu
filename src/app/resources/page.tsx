@@ -21,6 +21,11 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
+import { queueOfflineItem, QUEUE_SYNCED_EVENT } from '@/lib/offline-queue';
+
+// The listing endpoint exists, but its unfinished form is not part of today's
+// verified demo path. Keep the feature code and hide only the dead control.
+const SHOW_RESOURCE_LISTING = false;
 
 export default function ResourcesPage() {
   const { t, speak } = useTranslation();
@@ -38,6 +43,8 @@ export default function ResourcesPage() {
   const [reqUrgency, setReqUrgency] = useState<string>('MEDIUM');
   const [matchingResults, setMatchingResults] = useState<any[] | null>(null);
   const [submittingReq, setSubmittingReq] = useState<boolean>(false);
+  const [requestError, setRequestError] = useState<string>('');
+  const [requestSavedOffline, setRequestSavedOffline] = useState<boolean>(false);
 
   // List Resource Modal State
   const [listModalOpen, setListModalOpen] = useState<boolean>(false);
@@ -82,38 +89,81 @@ export default function ResourcesPage() {
   useEffect(() => {
     fetchResources();
     fetchRequests();
+    const eventSource = new EventSource('/api/events');
+    const refresh = () => {
+      fetchResources();
+      fetchRequests();
+    };
+    eventSource.addEventListener('resource_request_matched', refresh);
+    eventSource.addEventListener('resource_request_updated', refresh);
+    eventSource.addEventListener('open', refresh);
+    const handleQueueSynced = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (detail?.type === 'REQUEST') refresh();
+    };
+    window.addEventListener(QUEUE_SYNCED_EVENT, handleQueueSynced);
+    return () => {
+      eventSource.close();
+      window.removeEventListener(QUEUE_SYNCED_EVENT, handleQueueSynced);
+    };
   }, [activeCategory]);
 
   const handleRequestSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmittingReq(true);
+    setRequestError('');
+    setRequestSavedOffline(false);
 
     try {
+      const payload = {
+        category: reqCategory,
+        title: reqTitle,
+        description: reqDescription,
+        urgency: reqUrgency,
+      };
+      if (!navigator.onLine) {
+        await queueOfflineItem('REQUEST', payload);
+        setRequestSavedOffline(true);
+        setMatchingResults([]);
+        speak('Request saved on this device. Matching will run when the connection returns.');
+        return;
+      }
       const res = await fetch('/api/resources/requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setRequestError(data.error || 'Request could not be submitted.');
+        return;
+      }
+      setMatchingResults(data.topMatches || []);
+      speak(data.topMatches?.length
+        ? 'Smart matching complete. Found compatible village providers.'
+        : 'Request saved. No compatible provider is available yet.');
+      fetchRequests();
+    } catch {
+      try {
+        await queueOfflineItem('REQUEST', {
           category: reqCategory,
           title: reqTitle,
           description: reqDescription,
           urgency: reqUrgency,
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setMatchingResults(data.topMatches || []);
-        speak('Smart matching complete. Found top matching village providers.');
-        fetchRequests();
+        });
+        setRequestSavedOffline(true);
+        setMatchingResults([]);
+        speak('Network unavailable. Request saved on this device for later matching.');
+      } catch {
+        setRequestError('Network error and offline storage failed. The request was not saved.');
       }
-    } catch {
-      alert('Error submitting request');
     } finally {
       setSubmittingReq(false);
     }
   };
 
-  const handleProviderAction = async (requestId: string, action: 'ACCEPT' | 'DECLINE') => {
+  const handleProviderAction = async (requestId: string, action: 'ACCEPT' | 'DECLINE' | 'COMPLETE') => {
     try {
       const res = await fetch(`/api/resources/requests/${requestId}`, {
         method: 'PATCH',
@@ -121,12 +171,15 @@ export default function ResourcesPage() {
         body: JSON.stringify({ action }),
       });
 
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        speak(action === 'ACCEPT' ? 'Request accepted!' : 'Request passed to next provider.');
+        speak(action === 'ACCEPT' ? 'Request accepted!' : action === 'COMPLETE' ? 'Request completed!' : 'Request passed to next provider.');
         fetchRequests();
         fetchResources();
+      } else {
+        setRequestError(data.error || 'Provider action failed.');
       }
-    } catch {}
+    } catch { setRequestError('Network error. Provider action was not confirmed.'); }
   };
 
   const categories = [
@@ -153,22 +206,31 @@ export default function ResourcesPage() {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setRequestModalOpen(true)}
+             onClick={() => {
+               setRequestError('');
+               setMatchingResults(null);
+               setRequestSavedOffline(false);
+               setRequestModalOpen(true);
+             }}
             className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md transition-transform active:scale-95"
           >
             <Sparkles className="w-4 h-4" />
             <span>{t('resources.requestBtn')}</span>
           </button>
 
-          <button
-            onClick={() => setListModalOpen(true)}
+           {SHOW_RESOURCE_LISTING && <button
+             onClick={() => setListModalOpen(true)}
             className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-green-700 hover:bg-green-800 text-white font-extrabold text-xs shadow-md transition-transform active:scale-95"
           >
             <PlusCircle className="w-4 h-4" />
             <span>{t('resources.listBtn')}</span>
-          </button>
+           </button>}
         </div>
       </div>
+
+      {requestError && <p role="alert" className="rounded-xl bg-red-50 p-3 text-xs font-semibold text-red-800">
+        {requestError}
+      </p>}
 
       {/* Resource Utilization & Service Gap Alert Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -268,7 +330,7 @@ export default function ResourcesPage() {
 
                 <p className="text-xs text-slate-600 dark:text-slate-400">{req.description}</p>
 
-                {req.matchScore && (
+                {req.matchScore !== null && req.matchScore !== undefined && (
                   <div className="p-2.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-xs text-purple-900 dark:text-purple-200 flex items-center justify-between font-bold">
                     <span>Algorithm Fit Score:</span>
                     <span className="text-sm font-black">{req.matchScore}%</span>
@@ -276,20 +338,27 @@ export default function ResourcesPage() {
                 )}
 
                 {/* Provider Accept / Decline buttons if matched to this user */}
-                {currentUser?.role === 'PROVIDER' && req.status === 'MATCHED' && (
+                {currentUser?.role === 'PROVIDER' && req.matchedProviderId === currentUser.id &&
+                  (req.status === 'MATCHED' || req.status === 'ACCEPTED') && (
                   <div className="flex gap-2 pt-2 border-t border-slate-100">
-                    <button
-                      onClick={() => handleProviderAction(req.id, 'ACCEPT')}
-                      className="flex-1 py-2 rounded-xl bg-green-700 hover:bg-green-800 text-white font-bold text-xs shadow"
-                    >
-                      {t('resources.accept')}
-                    </button>
-                    <button
-                      onClick={() => handleProviderAction(req.id, 'DECLINE')}
-                      className="flex-1 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 text-xs font-bold"
-                    >
-                      {t('resources.decline')}
-                    </button>
+                    {req.status === 'MATCHED' && <>
+                      <button
+                        onClick={() => handleProviderAction(req.id, 'ACCEPT')}
+                        className="flex-1 py-2 rounded-xl bg-green-700 hover:bg-green-800 text-white font-bold text-xs shadow"
+                      >
+                        {t('resources.accept')}
+                      </button>
+                      <button
+                        onClick={() => handleProviderAction(req.id, 'DECLINE')}
+                        className="flex-1 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 text-xs font-bold"
+                      >
+                        {t('resources.decline')}
+                      </button>
+                    </>}
+                    {req.status === 'ACCEPTED' && <button
+                      onClick={() => handleProviderAction(req.id, 'COMPLETE')}
+                      className="w-full py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs shadow"
+                    >Complete Request</button>}
                   </div>
                 )}
               </div>
@@ -382,6 +451,7 @@ export default function ResourcesPage() {
                     <option value="EQUIPMENT">Tractor / Harvester / Pump</option>
                     <option value="VEHICLES">Water Tanker / Ambulance / Van</option>
                     <option value="SKILLED_PEOPLE">Electrician / Plumber / Mechanic</option>
+                    <option value="HUMAN_RESOURCES">Doctor / Teacher / Health Worker</option>
                     <option value="FACILITIES">Community Hall / Grain Godown</option>
                   </select>
                 </div>
@@ -424,7 +494,15 @@ export default function ResourcesPage() {
                   {t('resources.matchedTop')} (Transparent Match Breakdown)
                 </h4>
 
-                <div className="space-y-2">
+                {requestSavedOffline ? (
+                  <p className="rounded-xl bg-amber-50 p-4 text-xs text-amber-900">
+                    Request saved on this device — not matched or sent yet. Reconnect and use Sync Now.
+                  </p>
+                ) : matchingResults.length === 0 ? (
+                  <p className="rounded-xl bg-amber-50 p-4 text-xs text-amber-900">
+                    Request saved, but no compatible provider is available yet. It remains pending for the next listing.
+                  </p>
+                ) : <div className="space-y-2">
                   {matchingResults.map((match, i) => (
                     <div
                       key={match.resource.id}
@@ -450,7 +528,7 @@ export default function ResourcesPage() {
                       </div>
                     </div>
                   ))}
-                </div>
+                </div>}
 
                 <button
                   onClick={() => {
