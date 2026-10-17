@@ -2,12 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionUserFromRequest } from '@/lib/auth';
 import { sseManager } from '@/lib/sse';
+import { isResourceLocation } from '@/lib/matching';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
+    const session = await getSessionUserFromRequest(req);
+    const canRespond = session?.role === 'SARPANCH' ||
+      (session?.role === 'PROVIDER' && session.providerCategory === 'VOLUNTEER' && session.isVerified === true);
+    if (!session || !canRespond) return NextResponse.json({ error: 'Authorized responder access required' }, { status: 403 });
     const alerts = await prisma.sOSAlert.findMany({
+      where: { villageId: session.villageId },
       include: {
         village: { select: { name: true } },
       },
@@ -42,7 +48,10 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getSessionUserFromRequest(req);
-    const body = await req.json();
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json({ error: 'A JSON object is required' }, { status: 400 });
+    }
 
     const {
       lat = 18.3164,
@@ -52,18 +61,29 @@ export async function POST(req: NextRequest) {
       senderPhone,
     } = body;
 
-    const defaultVillage = await prisma.village.findFirst();
+    if (typeof message !== 'string' || message.trim().length < 5 || message.length > 2000) {
+      return NextResponse.json({ error: 'SOS message must be between 5 and 2000 characters' }, { status: 400 });
+    }
+    const numericLat = Number(lat);
+    const numericLng = Number(lng);
+    if (!isResourceLocation(numericLat, numericLng)) {
+      return NextResponse.json({ error: 'Valid SOS coordinates are required' }, { status: 400 });
+    }
+    const defaultVillage = await prisma.village.findFirst({ orderBy: { createdAt: 'asc' } });
     const villageId = session?.villageId || defaultVillage?.id || '';
+    if (!villageId) return NextResponse.json({ error: 'Village setup required' }, { status: 503 });
+    const senderNameValue = session?.name || (typeof senderName === 'string' && senderName.trim() ? senderName.trim() : 'Village Resident');
+    const senderPhoneValue = session?.phone || (typeof senderPhone === 'string' && senderPhone.trim() ? senderPhone.trim() : 'Emergency Contact');
 
     const alert = await prisma.sOSAlert.create({
       data: {
         villageId,
         senderId: session?.userId || null,
-        senderName: senderName || session?.name || 'Village Resident',
-        senderPhone: senderPhone || session?.phone || 'Emergency Contact',
-        lat: Number(lat),
-        lng: Number(lng),
-        message,
+        senderName: senderNameValue,
+        senderPhone: senderPhoneValue,
+        lat: numericLat,
+        lng: numericLng,
+        message: message.trim(),
         status: 'ACTIVE',
       },
     });
@@ -75,25 +95,21 @@ export async function POST(req: NextRequest) {
         targetRole: 'SARPANCH',
         type: 'SOS',
         title: `🚨 HIGH PRIORITY SOS: ${alert.senderName}`,
-        message: `${message} (Coordinates: ${lat.toFixed(4)}, ${lng.toFixed(4)})`,
+        message: `Emergency assistance requested at coordinates ${numericLat.toFixed(4)}, ${numericLng.toFixed(4)}.`,
         link: '/sos',
       },
     });
 
     // Real-time SSE alert
     sseManager.broadcast('sos_alert', {
+      villageId,
       id: alert.id,
-      senderName: alert.senderName,
-      senderPhone: alert.senderPhone,
-      lat: alert.lat,
-      lng: alert.lng,
-      message: alert.message,
       time: Date.now(),
     });
 
     return NextResponse.json({
       success: true,
-      alert,
+      alert: { id: alert.id, status: alert.status, createdAt: alert.createdAt },
       emergencyNumbers: {
         police: '112',
         womenHelpline: '1091',

@@ -17,6 +17,12 @@ interface MapPinItem {
   capacity?: string;
 }
 
+function escapeTooltip(value: unknown): string {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[character] || character));
+}
+
 interface VillageMapProps {
   initialPins?: MapPinItem[];
   selectedZone?: string;
@@ -260,7 +266,7 @@ export default function VillageMap({
           });
 
           marker.bindTooltip(
-            `<strong class="font-bold">${pin.title}</strong><br/><span class="text-xs opacity-80">${pin.type} (${pin.category || 'General'})</span>`,
+            `<strong class="font-bold">${escapeTooltip(pin.title)}</strong><br/><span class="text-xs opacity-80">${escapeTooltip(pin.type)} (${escapeTooltip(pin.category || 'General')})</span>`,
             { direction: 'top', offset: [0, -16] }
           );
 

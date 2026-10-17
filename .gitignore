@@ -5,6 +5,7 @@ node_modules/
 
 # Next.js build output
 .next/
+.next-build/
 out/
 
 # Production
@@ -17,6 +18,10 @@ build/
 .env.*.local
 
 # SQLite database (generated on first run)
+prisma/*.db
+prisma/*.db-journal
+prisma/*.db-shm
+prisma/*.db-wal
 prisma/dev.db
 prisma/dev.db-journal
 prisma/dev.db-shm

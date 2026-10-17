@@ -14,7 +14,7 @@ import {
   WifiOff,
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
-import { queueOfflineItem } from '@/lib/offline-queue';
+import { queueOfflineItem, QUEUE_SYNCED_EVENT } from '@/lib/offline-queue';
 
 interface SOSModalProps {
   isOpen: boolean;
@@ -28,12 +28,26 @@ export default function SOSModal({ isOpen, onClose }: SOSModalProps) {
     lng: 73.8682,
   });
   const [dispatching, setDispatching] = useState<boolean>(false);
-  const [alertSent, setAlertSent] = useState<boolean>(false);
+  const [deliveryState, setDeliveryState] = useState<'idle' | 'queued' | 'sent'>('idle');
   const [isOffline, setIsOffline] = useState<boolean>(false);
+  const [error, setError] = useState<string>('');
 
   // Auto capture geolocation on modal open
   useEffect(() => {
+    if (isOpen) {
+      setDeliveryState('idle');
+      setError('');
+    }
     setIsOffline(!navigator.onLine);
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    const handleQueueSynced = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (detail?.type === 'SOS') setDeliveryState('sent');
+    };
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener(QUEUE_SYNCED_EVENT, handleQueueSynced);
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -48,10 +62,16 @@ export default function SOSModal({ isOpen, onClose }: SOSModalProps) {
         { enableHighAccuracy: true, timeout: 5000 }
       );
     }
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener(QUEUE_SYNCED_EVENT, handleQueueSynced);
+    };
   }, [isOpen]);
 
   const dispatchAlert = async () => {
     setDispatching(true);
+    setError('');
     const payload = {
       lat: coords.lat,
       lng: coords.lng,
@@ -61,9 +81,8 @@ export default function SOSModal({ isOpen, onClose }: SOSModalProps) {
     if (!navigator.onLine) {
       // Offline queue
       await queueOfflineItem('SOS', payload);
-      setAlertSent(true);
-      speak('Offline SOS saved. Alert will transmit once connection is restored.');
-      setDispatching(false);
+      setDeliveryState('queued');
+      speak('SOS saved on this device. It has not been sent yet; reconnect to sync.');
       return;
     }
 
@@ -75,12 +94,20 @@ export default function SOSModal({ isOpen, onClose }: SOSModalProps) {
       });
 
       if (res.ok) {
-        setAlertSent(true);
-        speak('Emergency SOS alert transmitted to Sarpanch and nearby volunteers.');
+        setDeliveryState('sent');
+        speak('SOS submitted to the village system.');
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || 'SOS was not submitted.');
       }
     } catch {
-      await queueOfflineItem('SOS', payload);
-      setAlertSent(true);
+      try {
+        await queueOfflineItem('SOS', payload);
+        setDeliveryState('queued');
+        speak('Network unavailable. SOS saved on this device, not sent yet.');
+      } catch {
+        setError('Network and offline storage failed. Use a phone emergency dial immediately.');
+      }
     } finally {
       setDispatching(false);
     }
@@ -139,7 +166,8 @@ export default function SOSModal({ isOpen, onClose }: SOSModalProps) {
 
         {/* Primary Action: Send Live Village Alert */}
         <div className="mb-6">
-          {!alertSent ? (
+          {error && <p role="alert" className="mb-3 rounded-xl bg-red-50 p-3 text-xs font-semibold text-red-800">{error}</p>}
+          {deliveryState === 'idle' ? (
             <button
               onClick={dispatchAlert}
               disabled={dispatching}
@@ -156,9 +184,11 @@ export default function SOSModal({ isOpen, onClose }: SOSModalProps) {
               )}
             </button>
           ) : (
-            <div className="bg-green-50 dark:bg-green-950/40 border border-green-300 dark:border-green-800 rounded-2xl p-4 text-center text-green-900 dark:text-green-200 font-bold flex items-center justify-center gap-2">
+            <div className={`${deliveryState === 'queued' ? 'bg-amber-50 border-amber-300 text-amber-900' : 'bg-green-50 border-green-300 text-green-900'} dark:bg-slate-800 border rounded-2xl p-4 text-center font-bold flex items-center justify-center gap-2`}>
               <CheckCircle2 className="w-5 h-5 text-green-600" />
-              <span>SOS Alert Transmitted to Verified Volunteers</span>
+              <span>{deliveryState === 'queued'
+                ? 'SOS saved on this device — not sent yet. Reconnect and use Sync Now.'
+                : 'SOS submitted to the village system.'}</span>
             </div>
           )}
         </div>

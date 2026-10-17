@@ -4,9 +4,9 @@ import { signToken, COOKIE_NAME } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
   try {
-    const { phone, code, role, name, villageId, zoneId } = await req.json();
+    const { phone, code, name } = await req.json();
 
-    if (!phone || !code) {
+    if (typeof phone !== 'string' || !/^\d{10}$/.test(phone) || typeof code !== 'string' || !/^\d{6}$/.test(code)) {
       return NextResponse.json({ error: 'Phone and OTP code are required' }, { status: 400 });
     }
 
@@ -19,8 +19,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    if (!validOtp && code !== '123456') {
-      // In demo mode allow 123456 or actual OTP
+    if (!validOtp) {
       return NextResponse.json({ error: 'Invalid or expired OTP' }, { status: 400 });
     }
 
@@ -34,7 +33,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!user) {
-      const defaultVillage = await prisma.village.findFirst();
+      const defaultVillage = await prisma.village.findFirst({ orderBy: { createdAt: 'asc' } });
       if (!defaultVillage) {
         return NextResponse.json({ error: 'System database not initialized' }, { status: 500 });
       }
@@ -42,11 +41,13 @@ export async function POST(req: NextRequest) {
       user = await prisma.user.create({
         data: {
           phone,
-          name: name || `Villager ${phone.slice(-4)}`,
-          role: role || 'RESIDENT',
-          villageId: villageId || defaultVillage.id,
-          zoneId: zoneId || null,
-          isVerified: role === 'RESIDENT',
+          name: typeof name === 'string' && name.trim().length >= 2 && name.length <= 100
+            ? name.trim()
+            : `Villager ${phone.slice(-4)}`,
+          role: 'RESIDENT',
+          villageId: defaultVillage.id,
+          zoneId: null,
+          isVerified: true,
         },
         include: { village: true, zone: true },
       });

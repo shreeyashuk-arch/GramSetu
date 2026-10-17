@@ -1,3 +1,14 @@
+export const RESOURCE_CATEGORIES = ['EQUIPMENT', 'VEHICLES', 'SKILLED_PEOPLE', 'HUMAN_RESOURCES', 'FACILITIES'] as const;
+
+export function isResourceCategory(value: unknown): value is typeof RESOURCE_CATEGORIES[number] {
+  return typeof value === 'string' && RESOURCE_CATEGORIES.some(category => category === value);
+}
+
+export function isResourceLocation(lat: unknown, lng: unknown): boolean {
+  return typeof lat === 'number' && Number.isFinite(lat) && lat >= -90 && lat <= 90 &&
+    typeof lng === 'number' && Number.isFinite(lng) && lng >= -180 && lng <= 180;
+}
+
 export interface ResourceCandidate {
   id: string;
   name: string;
@@ -43,6 +54,31 @@ export interface MatchScoreResult {
   };
   reasons: string[];
   summaryReason: string;
+}
+
+// Keep replay/rematching inputs in the existing JSON column; no schema change.
+export interface RequestMatchMetadata {
+  version: 1;
+  location: { lat: number; lng: number } | null;
+  declinedProviderIds: string[];
+  breakdown: MatchScoreResult['breakdown'] | null;
+}
+
+export function readRequestMatchMetadata(raw: string | null): RequestMatchMetadata {
+  const empty: RequestMatchMetadata = { version: 1, location: null, declinedProviderIds: [], breakdown: null };
+  try {
+    const value = JSON.parse(raw || 'null');
+    if (!value || value.version !== 1) return empty;
+    return {
+      ...empty,
+      location: isResourceLocation(value.location?.lat, value.location?.lng) ? value.location : null,
+      declinedProviderIds: Array.isArray(value.declinedProviderIds)
+        ? [...new Set<string>(value.declinedProviderIds.filter((id: unknown) => typeof id === 'string'))]
+        : [],
+    };
+  } catch {
+    return empty;
+  }
 }
 
 // Haversine formula to compute distance in km
@@ -103,7 +139,9 @@ export function scoreResourceMatch(
   }
 
   // 4. Reliability / Trust (max 15 pts)
-  const trust = resource.owner.trustScore || 1.0;
+  const trust = Number.isFinite(resource.owner.trustScore)
+    ? Math.min(Math.max(resource.owner.trustScore, 0), 1)
+    : 0;
   const verifiedBonus = resource.owner.isVerified ? 3 : 0;
   const reliabilityScore = Math.min(Math.round(trust * 10) + verifiedBonus, 15);
   if (resource.owner.isVerified) {
@@ -145,6 +183,7 @@ export function rankMatchingResources(
   limit: number = 3
 ): MatchScoreResult[] {
   return resources
+    .filter((r) => isResourceCategory(r.category.toUpperCase()) && r.category.toUpperCase() === request.category.toUpperCase())
     .map((r) => scoreResourceMatch(r, request))
     .sort((a, b) => b.totalScore - a.totalScore)
     .slice(0, limit);

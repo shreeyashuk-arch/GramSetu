@@ -25,9 +25,9 @@ graph TD
 
 ---
 
-## 🚀 Quick Start (Zero Setup)
+## 🚀 Quick Start (Local Demo)
 
-GramSetu runs with zero external database configuration using SQLite:
+Use Node and npm from the same operating system that installed `node_modules` (Windows in the current workspace). SQLite needs no external database service, but it does need initialization:
 
 ```bash
 # 1. Clone / Navigate to project
@@ -36,14 +36,18 @@ cd GramSetu
 # 2. Install dependencies (runs Prisma generation automatically)
 npm install
 
-# 3. Seed database with realistic rural data
-npm run prisma:seed
+# 3. Create local configuration, initialize SQLite, and seed an empty database
+npm run demo:setup
 
 # 4. Start local development server
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+`demo:setup` creates an ignored `.env` with a random session secret and a separate demo database when no `.env` exists. It preserves existing configuration and populated data; rerunning it does not reset complaints or users. Restart an already-running dev server if it does not pick up the new environment file.
+
+Do not copy `node_modules` between Windows and WSL. Install separately if you intentionally change runtime platforms. No production readiness or legal-compliance guarantee is implied by the local demo setup.
 
 ---
 
@@ -58,7 +62,7 @@ GramSetu includes a **1-Click Role Switcher** on the top demo bar on every scree
 | **Organization** | Jal Shakti Dept | `9876543220` | Segregated department queue (Water, Electricity, Roads, Health, Agriculture), accepts/rejects, manages SLA deadlines, uploads before/after resolution proof photos. |
 | **Provider / Volunteer** | Ramesh Shinde | `9876543230` | Lists village resources (45HP Tractor), receives smart matched requests with proximity/fit score, accepts/declines, completes jobs. |
 
-> **Demo Mode Login**: On `/login`, enter any phone number and click **Send OTP**. In demo mode, the 6-digit OTP is **displayed directly on screen** and auto-filled.
+> **Local Demo Mode Login**: With `NEXT_PUBLIC_DEMO_MODE="true"`, `/login` displays and auto-fills the generated 6-digit OTP. The seeded four-role one-click login is also available; production deployments must configure real OTP delivery instead of enabling this demo shortcut.
 
 ---
 
@@ -107,8 +111,8 @@ GramSetu includes a **1-Click Role Switcher** on the top demo bar on every scree
 - **Resource Utilization Meter**: *"7 of 10 tractors idle this week"* + *"Can the village solve this internally?"* check.
 - **Service Gap Detection**: Automatically detects supply/demand imbalances per zone (e.g., *"Zone B: Agricultural equipment demand is 7.0x local supply"*).
 
-### 7. Confidential Anonymous Complaints
-- Accessible without login. Zero name, phone number, IP address, or device ID stored.
+### 7. Confidential Anonymous Complaints (prototype privacy controls)
+- Accessible without login. The complaint record does not attach an account, phone number, or device ID; transient in-memory rate limiting uses a salted hash and infrastructure/network logs are outside this app's control.
 - Returns a random secure tracking code (e.g. `GS-ANON-7829-X`) for later status tracking.
 - Abuse prevention via short-lived salted hash rate limiting (`checkRateLimit`).
 
@@ -117,7 +121,7 @@ GramSetu includes a **1-Click Role Switcher** on the top demo bar on every scree
 - Sends live location, timestamp, and alert to the Sarpanch and nearby safety volunteers over SSE.
 - Direct quick-dial buttons: **112** (National Emergency), **1091** (Women Helpline), **181** (Women in Distress), **108** (Ambulance), **100** (Police).
 - Instant share links for **WhatsApp** and **SMS** with prefilled coordinates.
-- Offline fallback: queues in IndexedDB and syncs automatically upon reconnect.
+- Offline fallback: queues in IndexedDB and attempts sync when the app is open and the connection returns; queued items are not delivered until sync succeeds.
 - Dedicated SOS Command Center dashboard for authorized roles with response time tracking.
 
 ### 9. Live Village Map (Dual Engine)
@@ -142,9 +146,9 @@ GramSetu includes a **1-Click Role Switcher** on the top demo bar on every scree
 - **Spam Filtering**: Flags gibberish, unnatural character repetition (`aaaaaa`), promotional keywords (`casino`, `lottery`, `loan`), out-of-bounds coordinates, and low trust scores.
 - Flagged items route to the **Sarpanch Moderation Queue** with detailed reasons.
 
-### 13. Privacy & DPDP Act 2023 Compliance
-- Data minimization and explicit consent notice.
-- Self-service **"Permanently Delete My Data"** under Section 12 of the DPDP Act.
+### 13. Privacy & DPDP-aligned prototype controls
+- Data minimization, consent copy, coarse public coordinates, and role-scoped responses are implemented as prototype controls.
+- Self-service **"Delete My Data"** is available for the current account. This project does not claim legal compliance or replace a production DPDP assessment.
 
 ### 14. Analytics & Service Health Index
 - **Village Service Health Index (0-100)**: Real-time composite score based on open critical issues, resolution speed, and resident satisfaction.
@@ -158,13 +162,13 @@ GramSetu includes a **1-Click Role Switcher** on the top demo bar on every scree
 
 ## 🧪 Automated Test Suite
 
-Run the unit tests verifying all mathematical and algorithmic engines:
+Run the automated checks for the mathematical engines, access policy, isolated API handlers, and resource workflow:
 
 ```bash
 npm test
 ```
 
-Expected output:
+The current suite includes 25 core engine assertions, 65 access-policy cases, 62 isolated API cases, and 9 isolated resource cases. The exact counts may grow as regression coverage is added; these tests do not replace browser/mobile/offline verification.
 ```text
 🧪 Running GramSetu Core Engines & RBAC Test Suite...
   ✅ PASS: Band should be CRITICAL, got CRITICAL (Score: 100)
@@ -181,17 +185,17 @@ Expected output:
   ✅ PASS: Spam keywords and repetitive pattern should be flagged as spam
   ✅ PASS: Sarpanch can access all views
   ✅ PASS: Resident can manage own complaint
-🎉 Results: 25 / 25 tests PASSED!
+🎉 Core engine results: 25 / 25 assertions PASSED!
 ```
 
 ---
 
 ## 🎬 9-Step Demo Walkthrough
 
-Run the live end-to-end walkthrough script against the running server:
+The following is a manual demo path. `scripts/test-live-e2e.ts` is a legacy mutation walkthrough and is **not** the automated proof of these behaviors; it is not safe to treat its printed checkmarks as offline or authorization verification.
 
 ```bash
-npx tsx scripts/test-live-e2e.ts
+# Use the browser click path below for the live demo.
 ```
 
 | Step | Action | Screen / Feature |
@@ -204,7 +208,7 @@ npx tsx scripts/test-live-e2e.ts
 | **6** | Sarpanch posts emergency alert | Sarpanch logs in, creates emergency rainfall notice with translations. Appears red on the top ticker. |
 | **7** | Women's SOS alert triggered | Press & hold SOS button for 2 seconds. Transmits GPS coordinates to Sarpanch and volunteers. Quick dials shown. |
 | **8** | Live map & analytics | View `/map` with zone boundaries and toggles; inspect `/analytics` for Service Health Index and CSV export. |
-| **9** | Offline mode resilience | Disconnect Wi-Fi/data. Queue complaints in IndexedDB. Reconnect and click "Sync Now". |
+| **9** | Offline mode resilience (manual verification required) | In the presentation browser, disconnect Wi-Fi/data, queue a signed-in complaint/resource request or SOS, reconnect, click "Sync Now", and verify the UI changes from queued to submitted. |
 
 ---
 
@@ -214,7 +218,7 @@ See `.env.example`:
 
 ```ini
 DATABASE_URL="file:./dev.db"
-JWT_SECRET="gramsetu-super-secret-jwt-key-2026-secure"
+JWT_SECRET="replace-with-a-random-secret-of-at-least-32-characters"
 NEXT_PUBLIC_MAPS_API_KEY="" # Leave empty for automatic Leaflet + OpenStreetMap fallback
 NEXT_PUBLIC_CHATBOT_URL=""  # Leave empty for built-in Gram Assistant bot
 NEXT_PUBLIC_DEMO_MODE="true"

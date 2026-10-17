@@ -43,6 +43,8 @@ export default function TopTicker() {
     eventSource.addEventListener('complaint_updated', () => fetchNotifications());
     eventSource.addEventListener('post_created', () => fetchNotifications());
     eventSource.addEventListener('sos_alert', () => fetchNotifications());
+    eventSource.addEventListener('resource_request_matched', () => fetchNotifications());
+    eventSource.addEventListener('resource_request_updated', () => fetchNotifications());
 
     return () => {
       eventSource.close();

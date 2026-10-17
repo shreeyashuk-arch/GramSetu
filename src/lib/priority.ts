@@ -38,7 +38,11 @@ export function calculatePriority(input: PriorityInput): PriorityResult {
   const peopleAffected = Math.min(Math.max(input.peopleAffected || 1, 1), 5);
   const timeSensitivity = Math.min(Math.max(input.timeSensitivity || 2, 1), 5);
   const daysOpen = Math.max(input.daysOpen || 0, 0);
-  const vulnerabilities = input.vulnerabilities || [];
+  const knownVulnerabilities = ['elderly', 'pregnant', 'disabled', 'children'];
+  const vulnerabilities = [...new Set(
+    (Array.isArray(input.vulnerabilities) ? input.vulnerabilities : [])
+      .filter(value => knownVulnerabilities.includes(value))
+  )];
 
   // Vulnerability score: 0 to 5 based on flagged vulnerable groups
   const vulnerabilityScore = Math.min(vulnerabilities.length * 1.5, 5);

@@ -9,8 +9,13 @@ export async function GET(req: NextRequest) {
     const session = await getSessionUserFromRequest(req);
     const role = session?.role || 'RESIDENT';
     const userId = session?.userId;
+    const village = session
+      ? { id: session.villageId }
+      : await prisma.village.findFirst({ orderBy: { createdAt: 'asc' }, select: { id: true } });
+    if (!village) return NextResponse.json({ notifications: [], unreadCount: 0, tickerItems: [] });
 
     const where: any = {
+      villageId: village.id,
       OR: [
         { targetRole: 'ALL' },
         { targetRole: role },

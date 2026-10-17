@@ -47,10 +47,10 @@ export default function LoginPage() {
 
       const data = await res.json();
       if (res.ok) {
-        setDemoOtp(data.demoOtp);
-        setOtp(data.demoOtp); // Auto-fill in demo mode for ultimate evaluation ease
+        setDemoOtp(data.demoOtp || null);
+        setOtp(data.demoOtp || ''); // Local demo mode auto-fills the displayed code.
         setStep('OTP');
-        speak(`OTP generated in demo mode: ${data.demoOtp}`);
+        speak(data.demoOtp ? `OTP generated in demo mode: ${data.demoOtp}` : 'OTP sent.');
       } else {
         alert(data.error || 'Failed to send OTP');
       }
