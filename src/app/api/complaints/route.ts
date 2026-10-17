@@ -119,8 +119,16 @@ export async function GET(req: NextRequest) {
         (session?.role === 'ORGANIZATION' && session.organizationType === c.assignedOrgType) ||
         (session?.role === 'RESIDENT' && session.userId === c.residentId);
 
+      let parsedFactors: any = null;
+      if (c.priorityFactors) {
+        try {
+          parsedFactors = JSON.parse(c.priorityFactors);
+        } catch {}
+      }
+
       return {
         ...c,
+        parsedFactors,
         lat: isPrivileged ? c.lat : c.coarseLat,
         lng: isPrivileged ? c.lng : c.coarseLng,
         resident: isPrivileged
@@ -314,17 +322,31 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Create Notification
+    // Create Notification for Sarpanch (Chief Administrator)
     await prisma.notification.create({
       data: {
         villageId,
-        targetRole: assignedOrgType === 'PANCHAYAT' ? 'SARPANCH' : 'ORGANIZATION',
+        targetRole: 'SARPANCH',
         type: priority.band === 'CRITICAL' ? 'EMERGENCY' : 'ASSIGNMENT',
         title: `New Grievance #${code}: ${title.substring(0, 40)}`,
-        message: `Priority: ${priority.band} (${priority.score}/100). Auto-routed to ${assignedOrgType}.`,
-        link: `/complaints/track`,
+        message: `Priority: ${priority.band} (${priority.score}/100). Category: ${category}. Auto-routed to ${assignedOrgType}.`,
+        link: `/sarpanch?complaintId=${complaint.id}`,
       },
     });
+
+    // Create Notification for Organization if not panchayat
+    if (assignedOrgType !== 'PANCHAYAT') {
+      await prisma.notification.create({
+        data: {
+          villageId,
+          targetRole: 'ORGANIZATION',
+          type: priority.band === 'CRITICAL' ? 'EMERGENCY' : 'ASSIGNMENT',
+          title: `Assigned Grievance #${code}: ${title.substring(0, 40)}`,
+          message: `Category: ${category}. Priority: ${priority.band}. Action required.`,
+          link: `/organization?complaintId=${complaint.id}`,
+        },
+      });
+    }
 
     // SSE Broadcast
     sseManager.broadcast('complaint_created', {

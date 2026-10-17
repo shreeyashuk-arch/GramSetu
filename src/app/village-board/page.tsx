@@ -58,6 +58,18 @@ export default function VillageBoardPage() {
 
   useEffect(() => {
     fetchPosts();
+
+    let evtSource: EventSource | null = null;
+    try {
+      evtSource = new EventSource('/api/events');
+      evtSource.addEventListener('post_created', () => {
+        fetchPosts();
+      });
+    } catch {}
+
+    return () => {
+      evtSource?.close();
+    };
   }, [filterType, language]);
 
   const handleCreatePost = async (e: React.FormEvent) => {

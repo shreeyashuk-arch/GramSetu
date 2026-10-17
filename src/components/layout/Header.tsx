@@ -17,14 +17,18 @@ import {
   Users,
   Compass,
   BarChart2,
-  Lock,
-  PlusCircle,
   HelpCircle,
   LogOut,
   User,
+  Building2,
+  Wrench,
+  LayoutGrid,
+  PlusCircle,
+  Lock,
 } from 'lucide-react';
 import { useTranslation, LANGUAGES, SupportedLanguage } from '@/lib/i18n';
 import { syncOfflineQueue, getQueuedItems } from '@/lib/offline-queue';
+import StakeholderModal from './StakeholderModal';
 
 export default function Header() {
   const pathname = usePathname();
@@ -35,6 +39,7 @@ export default function Header() {
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [langMenuOpen, setLangMenuOpen] = useState<boolean>(false);
+  const [stakeholderModalOpen, setStakeholderModalOpen] = useState<boolean>(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   // Check network state
@@ -112,12 +117,13 @@ export default function Header() {
   const navLinks = [
     { href: '/', label: t('nav.home'), icon: Compass },
     { href: '/report', label: t('nav.report'), icon: PlusCircle },
-    { href: '/map', label: t('nav.map'), icon: MapPin },
+    { href: '/complaints/track', label: 'Track Status', icon: RefreshCw },
     { href: '/village-board', label: t('nav.board'), icon: FileText },
+    { href: '/sarpanch', label: '👑 Sarpanch', icon: Shield },
+    { href: '/organization', label: '🏢 Departments', icon: Building2 },
+    { href: '/provider', label: '🔧 Providers', icon: Wrench },
+    { href: '/map', label: t('nav.map'), icon: MapPin },
     { href: '/resources', label: t('nav.resources'), icon: Users },
-    { href: '/anonymous', label: t('nav.anonymous'), icon: Lock },
-    { href: '/schemes', label: t('nav.schemes'), icon: HelpCircle },
-    { href: '/analytics', label: t('nav.analytics'), icon: BarChart2 },
   ];
 
   return (
@@ -191,6 +197,16 @@ export default function Header() {
 
         {/* Action Controls: Voice Help, Language Selector, User Profile */}
         <div className="flex items-center gap-2">
+          {/* Stakeholder Switcher Button */}
+          <button
+            onClick={() => setStakeholderModalOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-900 text-amber-400 hover:bg-slate-800 font-extrabold text-xs shadow-sm transition-all active:scale-95"
+            title="Switch Stakeholder Stream (Resident / Sarpanch / Org / Provider)"
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Role</span>
+          </button>
+
           {/* Voice Help Button (Accessibility for low literacy) */}
           <button
             onClick={readScreenAloud}
@@ -283,6 +299,11 @@ export default function Header() {
             );
           })}
         </div>
+      )}
+
+      {/* Stakeholder Selection Modal */}
+      {stakeholderModalOpen && (
+        <StakeholderModal forceOpen={true} onClose={() => setStakeholderModalOpen(false)} />
       )}
     </header>
   );

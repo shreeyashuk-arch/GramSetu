@@ -25,6 +25,7 @@ import {
   CheckCircle2,
   Check,
   Volume2,
+  ArrowRight,
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { calculatePriority } from '@/lib/priority';
@@ -231,18 +232,65 @@ export default function ReportProblemPage() {
           <CheckCircle2 className="w-12 h-12" />
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-3">
+          <span className="inline-block px-3 py-1 rounded-full bg-green-100 dark:bg-green-900/60 text-green-800 dark:text-green-300 font-extrabold text-xs">
+            {successResult.offline ? 'SAVED OFFLINE' : 'REGISTERED SUCCESSFULLY'}
+          </span>
           <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
             {successResult.offline ? 'Saved Offline' : 'Grievance Submitted!'}
           </h2>
           <p className="text-sm text-slate-600 dark:text-slate-300">
             {successResult.offline
               ? successResult.message
-              : `Your ticket #${successResult.code} has been prioritized as ${successResult.priorityBand} and auto-routed to ${successResult.assignedOrgType}.`}
+              : `Your ticket has been prioritized as ${successResult.priorityBand} and sent directly to the Sarpanch and ${successResult.assignedOrgType || 'concerned department'}.`}
           </p>
         </div>
 
-        <div className="pt-4 flex items-center justify-center gap-3">
+        {/* Ticket Code Box */}
+        {successResult.code && (
+          <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border-2 border-dashed border-green-600/50 max-w-sm mx-auto space-y-1">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              Grievance Tracking Code
+            </span>
+            <div className="text-2xl font-black text-green-700 dark:text-green-400 tracking-wider">
+              #{successResult.code}
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Save this code or click below to track live resolution progress
+            </p>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <Link
+            href={`/complaints/track${successResult.id ? `?id=${successResult.id}` : ''}`}
+            className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-green-700 hover:bg-green-800 text-white font-extrabold text-sm shadow-lg shadow-green-700/25 transition-transform active:scale-95 flex items-center justify-center gap-2"
+          >
+            <span>Track / Check Status</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+
+          <button
+            onClick={async () => {
+              try {
+                await fetch('/api/auth/demo-login', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ role: 'SARPANCH' }),
+                });
+                router.push(`/sarpanch${successResult.id ? `?complaintId=${successResult.id}` : ''}`);
+              } catch {
+                router.push('/sarpanch');
+              }
+            }}
+            className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-sm shadow-md transition-all flex items-center justify-center gap-1.5"
+            title="Switch to Sarpanch Portal to see incoming ticket immediately"
+          >
+            <Shield className="w-4 h-4" />
+            <span>Open in Sarpanch Tab →</span>
+          </button>
+
           <button
             onClick={() => {
               setSuccessResult(null);
@@ -250,16 +298,10 @@ export default function ReportProblemPage() {
               setDescription('');
               setPhotoUrl('');
             }}
-            className="px-6 py-3 rounded-2xl bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold text-sm"
+            className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold text-sm hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
           >
             Report Another
           </button>
-          <Link
-            href="/complaints/track"
-            className="px-6 py-3 rounded-2xl bg-green-700 hover:bg-green-800 text-white font-bold text-sm shadow-md shadow-green-700/20"
-          >
-            Track Status →
-          </Link>
         </div>
       </div>
     );

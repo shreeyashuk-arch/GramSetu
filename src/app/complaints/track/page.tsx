@@ -246,9 +246,17 @@ function TrackComplaintsContent() {
                   <h3 className="font-extrabold text-sm sm:text-base text-slate-900 dark:text-white mb-1">
                     {c.title}
                   </h3>
-                  <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 mb-3">
+                  <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 mb-2">
                     {c.description}
                   </p>
+
+                  {/* ETA Badge if set by Sarpanch */}
+                  {c.parsedFactors?.resolutionEta && (
+                    <div className="mb-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 text-[11px] font-bold border border-amber-200 dark:border-amber-900">
+                      <Clock className="w-3 h-3 text-amber-600" />
+                      <span>Resolution ETA: {c.parsedFactors.resolutionEta}</span>
+                    </div>
+                  )}
 
                   <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium pt-2 border-t border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-2">
@@ -297,6 +305,27 @@ function TrackComplaintsContent() {
                 </button>
               </div>
 
+              {/* ETA & Sarpanch Instructions Callout */}
+              {(selectedComplaint.parsedFactors?.resolutionEta || selectedComplaint.parsedFactors?.sarpanchRemark) && (
+                <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 rounded-2xl border border-amber-300 dark:border-amber-800 space-y-2">
+                  {selectedComplaint.parsedFactors?.resolutionEta && (
+                    <div className="flex items-center gap-2 text-xs font-bold text-amber-950 dark:text-amber-200">
+                      <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>Expected Resolution Time:</span>
+                      <span className="bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-2 py-0.5 rounded-full font-black text-[11px]">
+                        {selectedComplaint.parsedFactors.resolutionEta}
+                      </span>
+                    </div>
+                  )}
+                  {selectedComplaint.parsedFactors?.sarpanchRemark && (
+                    <div className="text-[11px] text-amber-900 dark:text-amber-300 font-medium pl-6">
+                      <strong className="text-amber-950 dark:text-amber-200">Sarpanch Note: </strong>
+                      {selectedComplaint.parsedFactors.sarpanchRemark}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Priority Explanation Breakdown */}
               <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl text-xs space-y-1 border border-slate-100 dark:border-slate-800">
                 <div className="flex items-center justify-between font-bold">
@@ -304,11 +333,29 @@ function TrackComplaintsContent() {
                   <span className="text-green-700 uppercase">{selectedComplaint.priorityBand}</span>
                 </div>
                 <p className="text-[11px] text-slate-600 dark:text-slate-300 italic">
-                  {selectedComplaint.priorityFactors
-                    ? JSON.parse(selectedComplaint.priorityFactors).explanation
-                    : 'Standard severity based on affected households.'}
+                  {selectedComplaint.parsedFactors?.explanation ||
+                    (selectedComplaint.priorityFactors
+                      ? (() => {
+                          try {
+                            return JSON.parse(selectedComplaint.priorityFactors).explanation;
+                          } catch {
+                            return 'Standard severity assessment.';
+                          }
+                        })()
+                      : 'Standard severity based on affected households.')}
                 </p>
               </div>
+
+              {/* Assigned Department */}
+              {selectedComplaint.assignedOrgType && (
+                <div className="flex items-center gap-2 p-2.5 bg-blue-50 dark:bg-blue-950/40 rounded-xl border border-blue-200 dark:border-blue-900 text-xs">
+                  <Building className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span className="text-slate-600 dark:text-slate-400">Assigned Department:</span>
+                  <span className="font-bold text-blue-900 dark:text-blue-300">
+                    {selectedComplaint.assignedOrgType}
+                  </span>
+                </div>
+              )}
 
               {/* Status Timeline */}
               <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">

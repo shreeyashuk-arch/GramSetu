@@ -19,6 +19,10 @@ import {
   Activity,
   Layers,
   Sparkles,
+  Shield,
+  Building2,
+  Wrench,
+  UserCheck,
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 
@@ -161,6 +165,111 @@ export default function HomePage() {
             <span className="text-xs font-bold text-slate-500">hours</span>
           </div>
           <p className="text-[11px] text-slate-500 mt-1">From submission to proof</p>
+        </div>
+      </section>
+
+      {/* 4. The 4 Stakeholder Portals & Stream Gateways */}
+      <section className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+              <Layers className="w-6 h-6 text-amber-500" />
+              <span>Village Stakeholder Workspaces (हितधारक दालने)</span>
+            </h2>
+            <p className="text-xs text-slate-500">
+              Integrated real-time coordination across residents, Sarpanch administration, departments, and service providers
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* 1. Resident */}
+          <Link
+            href="/report"
+            className="p-5 rounded-3xl bg-white dark:bg-slate-900 border-2 border-green-500/30 hover:border-green-600 transition-all shadow-sm hover:shadow-md flex flex-col justify-between gap-3 group"
+          >
+            <div className="space-y-2">
+              <div className="w-10 h-10 rounded-2xl bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300 flex items-center justify-center font-bold">
+                <UserCheck className="w-5 h-5" />
+              </div>
+              <h3 className="font-extrabold text-base text-slate-900 dark:text-white group-hover:text-green-700 transition-colors">
+                1. Resident Stream
+              </h3>
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                Report problems by voice or text, track grievance status with timeline, view notice board and village map.
+              </p>
+            </div>
+            <div className="flex items-center gap-1 text-xs font-bold text-green-700 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <span>Report / Track Issue</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </Link>
+
+          {/* 2. Sarpanch */}
+          <Link
+            href="/sarpanch"
+            className="p-5 rounded-3xl bg-white dark:bg-slate-900 border-2 border-amber-500/40 hover:border-amber-500 transition-all shadow-sm hover:shadow-md flex flex-col justify-between gap-3 group"
+          >
+            <div className="space-y-2">
+              <div className="w-10 h-10 rounded-2xl bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 flex items-center justify-center font-bold">
+                <Shield className="w-5 h-5" />
+              </div>
+              <h3 className="font-extrabold text-base text-slate-900 dark:text-white group-hover:text-amber-600 transition-colors">
+                2. Sarpanch Stream
+              </h3>
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                Review incoming grievances, assign to departments, specify resolution ETA, and broadcast village notices.
+              </p>
+            </div>
+            <div className="flex items-center gap-1 text-xs font-bold text-amber-700 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <span>Manage & Solve</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </Link>
+
+          {/* 3. Organization */}
+          <Link
+            href="/organization"
+            className="p-5 rounded-3xl bg-white dark:bg-slate-900 border-2 border-blue-500/30 hover:border-blue-500 transition-all shadow-sm hover:shadow-md flex flex-col justify-between gap-3 group"
+          >
+            <div className="space-y-2">
+              <div className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 flex items-center justify-center font-bold">
+                <Building2 className="w-5 h-5" />
+              </div>
+              <h3 className="font-extrabold text-base text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">
+                3. Department Stream
+              </h3>
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                Jal Shakti, Electricity, Roads, Health. Execute assigned field tasks, upload proof photos, and resolve tickets.
+              </p>
+            </div>
+            <div className="flex items-center gap-1 text-xs font-bold text-blue-700 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <span>Department Queue</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </Link>
+
+          {/* 4. Provider */}
+          <Link
+            href="/provider"
+            className="p-5 rounded-3xl bg-white dark:bg-slate-900 border-2 border-teal-500/30 hover:border-teal-500 transition-all shadow-sm hover:shadow-md flex flex-col justify-between gap-3 group"
+          >
+            <div className="space-y-2">
+              <div className="w-10 h-10 rounded-2xl bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300 flex items-center justify-center font-bold">
+                <Wrench className="w-5 h-5" />
+              </div>
+              <h3 className="font-extrabold text-base text-slate-900 dark:text-white group-hover:text-teal-600 transition-colors">
+                4. Service Providers
+              </h3>
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                Tractors, water tankers, electricians, plumbers, and volunteers. Accept matched village requests.
+              </p>
+            </div>
+            <div className="flex items-center gap-1 text-xs font-bold text-teal-700 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <span>View Matched Tasks</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </Link>
         </div>
       </section>
 

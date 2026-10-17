@@ -70,6 +70,9 @@ export async function PATCH(
       residentFeedback,
       moderationStatus,
       moderationNotes,
+      resolutionEta,
+      sarpanchRemark,
+      slaHours,
     } = body;
 
     const existing = await prisma.complaint.findUnique({
@@ -113,14 +116,40 @@ export async function PATCH(
     // 3. Provider / Org Assignment
     if (assignedProviderId) {
       updateData.assignedProviderId = assignedProviderId;
-      updateData.status = 'ASSIGNED';
+      if (!status) updateData.status = 'ASSIGNED';
       auditAction = 'PROVIDER_ASSIGNED';
     }
     if (assignedOrgType) {
       updateData.assignedOrgType = assignedOrgType;
     }
 
-    // 4. Sarpanch Moderation
+    // 4. SLA & ETA updates
+    if (slaHours) {
+      updateData.slaHours = Number(slaHours);
+      updateData.slaExpiresAt = new Date(Date.now() + Number(slaHours) * 60 * 60 * 1000);
+    }
+
+    // 5. Store resolutionEta and sarpanchRemark in priorityFactors JSON
+    let factorsObj: any = {};
+    if (existing.priorityFactors) {
+      try {
+        factorsObj = JSON.parse(existing.priorityFactors);
+      } catch {}
+    }
+    if (resolutionEta !== undefined) {
+      factorsObj.resolutionEta = resolutionEta;
+    }
+    if (sarpanchRemark !== undefined) {
+      factorsObj.sarpanchRemark = sarpanchRemark;
+    }
+    if (assignedOrgType !== undefined) {
+      factorsObj.assignedOrgType = assignedOrgType;
+    }
+    if (resolutionEta !== undefined || sarpanchRemark !== undefined || assignedOrgType !== undefined) {
+      updateData.priorityFactors = JSON.stringify(factorsObj);
+    }
+
+    // 6. Sarpanch Moderation
     if (moderationStatus) {
       updateData.moderationStatus = moderationStatus;
       if (moderationStatus === 'REJECTED') {
@@ -156,18 +185,33 @@ export async function PATCH(
       },
     });
 
-    // Notification on resolution or assignment
-    if (updated.status === 'RESOLVED' && updated.residentId) {
-      await prisma.notification.create({
-        data: {
-          villageId: updated.villageId,
-          recipientId: updated.residentId,
-          type: 'STATUS_UPDATE',
-          title: `Resolution Proof Uploaded for #${updated.code}`,
-          message: 'The provider has uploaded resolution proof. Please confirm: Is it fixed?',
-          link: `/complaints/track?id=${updated.id}`,
-        },
-      });
+    // Notification on resolution, ETA update, or assignment
+    if (updated.residentId) {
+      if (updated.status === 'RESOLVED') {
+        await prisma.notification.create({
+          data: {
+            villageId: updated.villageId,
+            recipientId: updated.residentId,
+            type: 'STATUS_UPDATE',
+            title: `Resolution Proof Uploaded for #${updated.code}`,
+            message: 'The team has uploaded resolution proof. Please confirm: Is it fixed?',
+            link: `/complaints/track?id=${updated.id}`,
+          },
+        });
+      } else if (resolutionEta || status || sarpanchRemark) {
+        await prisma.notification.create({
+          data: {
+            villageId: updated.villageId,
+            recipientId: updated.residentId,
+            type: 'STATUS_UPDATE',
+            title: `Update on Grievance #${updated.code}`,
+            message: resolutionEta
+              ? `Status: ${updated.status}. Expected resolution: ${resolutionEta}.${sarpanchRemark ? ` Note: ${sarpanchRemark}` : ''}`
+              : `Status updated to ${updated.status}.`,
+            link: `/complaints/track?id=${updated.id}`,
+          },
+        });
+      }
     }
 
     // SSE Broadcast
@@ -177,6 +221,9 @@ export async function PATCH(
       status: updated.status,
       escalationLevel: updated.escalationLevel,
       proofPhotoUrl: updated.proofPhotoUrl,
+      assignedOrgType: updated.assignedOrgType,
+      resolutionEta,
+      sarpanchRemark,
       time: Date.now(),
     });
 
