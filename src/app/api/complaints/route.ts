@@ -124,14 +124,25 @@ export async function POST(req: NextRequest) {
       zoneId,
     } = body;
 
-    if (typeof isAnonymous !== 'boolean' || !Object.hasOwn(ORG_CATEGORY_MAP, category) ||
-        typeof title !== 'string' || title.trim().length < 5 || title.length > 160 ||
-        typeof description !== 'string' || description.trim().length < 10 || description.length > 4000 ||
-        typeof lat !== 'number' || !Number.isFinite(lat) || Math.abs(lat) > 90 ||
-        typeof lng !== 'number' || !Number.isFinite(lng) || Math.abs(lng) > 180 ||
-        ![urgency, peopleAffected, timeSensitivity].every(v => Number.isFinite(Number(v)) && Number(v) >= 1 && Number(v) <= 5) ||
+    if (typeof isAnonymous !== 'boolean') {
+      return NextResponse.json({ error: 'Invalid isAnonymous field' }, { status: 400 });
+    }
+    if (!category || !Object.hasOwn(ORG_CATEGORY_MAP, category)) {
+      return NextResponse.json({ error: 'Please select a valid category' }, { status: 400 });
+    }
+    if (typeof title !== 'string' || title.trim().length < 5 || title.length > 160) {
+      return NextResponse.json({ error: 'Problem title must be between 5 and 160 characters' }, { status: 400 });
+    }
+    if (typeof description !== 'string' || description.trim().length < 10 || description.length > 4000) {
+      return NextResponse.json({ error: 'Problem description must be between 10 and 4000 characters' }, { status: 400 });
+    }
+    if (typeof lat !== 'number' || !Number.isFinite(lat) || Math.abs(lat) > 90 ||
+        typeof lng !== 'number' || !Number.isFinite(lng) || Math.abs(lng) > 180) {
+      return NextResponse.json({ error: 'Valid location coordinates (lat, lng) are required' }, { status: 400 });
+    }
+    if (![urgency, peopleAffected, timeSensitivity].every(v => Number.isFinite(Number(v)) && Number(v) >= 1 && Number(v) <= 5) ||
         !Array.isArray(vulnerabilities) || vulnerabilities.some(v => !['elderly', 'pregnant', 'disabled', 'children'].includes(v))) {
-      return NextResponse.json({ error: 'Missing required fields (category, title, description, location)' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid urgency, peopleAffected, or vulnerabilities values' }, { status: 400 });
     }
     if (!isAnonymous && !session) {
       return NextResponse.json({ error: 'Sign in to report, or use confidential anonymous reporting' }, { status: 401 });

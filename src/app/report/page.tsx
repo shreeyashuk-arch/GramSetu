@@ -78,8 +78,10 @@ export default function ReportProblemPage() {
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setLat(pos.coords.latitude);
-          setLng(pos.coords.longitude);
+          if (pos?.coords?.latitude != null && !isNaN(pos.coords.latitude)) {
+            setLat(pos.coords.latitude);
+            setLng(pos.coords.longitude);
+          }
         },
         () => {},
         { timeout: 4000 }
@@ -161,26 +163,37 @@ export default function ReportProblemPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !description.trim()) {
-      alert('Please enter problem title and details.');
+    const cleanTitle = title.trim();
+    const cleanDesc = description.trim();
+
+    if (!cleanTitle || cleanTitle.length < 5) {
+      alert('Please enter a problem title with at least 5 characters.');
+      return;
+    }
+    if (!cleanDesc || cleanDesc.length < 10) {
+      alert('Please enter problem details with at least 10 characters.');
       return;
     }
 
     setSubmitting(true);
     setDuplicateAlert(null);
 
+    const validLat = typeof lat === 'number' && Number.isFinite(lat) ? lat : 18.3164;
+    const validLng = typeof lng === 'number' && Number.isFinite(lng) ? lng : 73.8682;
+
     const payload = {
       category,
-      title,
-      description,
+      title: cleanTitle,
+      description: cleanDesc,
       photoUrl: photoUrl || null,
-      lat,
-      lng,
-      address,
+      lat: validLat,
+      lng: validLng,
+      address: address || 'Shivapur Village',
       urgency,
       peopleAffected,
       vulnerabilities,
       timeSensitivity: urgency,
+      isAnonymous: false,
       proxyFiledBy: isProxy ? proxyName || 'Volunteer' : null,
       proxyPhone: isProxy ? proxyPhone : null,
     };
@@ -372,23 +385,33 @@ export default function ReportProblemPage() {
           </div>
 
           <div className="space-y-3">
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Problem Title (e.g., Broken water pump valve at North Well)"
-              className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-green-600"
-              required
-            />
+            <div>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Problem Title (e.g., Broken water pump valve at North Well)"
+                className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-green-600"
+                minLength={5}
+                maxLength={160}
+                required
+              />
+              <span className="text-[10px] text-slate-400 font-medium pl-1">Min 5 characters</span>
+            </div>
 
-            <textarea
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Tell us what happened, exact location, or speak via mic..."
-              className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
-              required
-            />
+            <div>
+              <textarea
+                rows={3}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Tell us what happened, exact location, or speak via mic..."
+                className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                minLength={10}
+                maxLength={4000}
+                required
+              />
+              <span className="text-[10px] text-slate-400 font-medium pl-1">Min 10 characters</span>
+            </div>
           </div>
         </div>
 

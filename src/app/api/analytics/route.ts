@@ -18,6 +18,9 @@ export async function GET(req: NextRequest) {
     const resolvedComplaints = await prisma.complaint.count({
       where: { status: { in: ['RESOLVED', 'CLOSED'] } },
     });
+    const matchedRequests = await prisma.resourceRequest.count({
+      where: { status: { in: ['MATCHED', 'ACCEPTED', 'COMPLETED'] } },
+    });
 
     // Category breakdown
     const complaintsByCategory = await prisma.complaint.groupBy({
@@ -88,6 +91,7 @@ export async function GET(req: NextRequest) {
         activeComplaints,
         criticalComplaints,
         resolvedComplaints,
+        matchedRequests,
         resolutionPercentage: totalComplaints > 0 ? Math.round((resolvedComplaints / totalComplaints) * 100) : 0,
         avgResolutionTimeHours: 28,
         healthIndex,
